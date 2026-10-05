@@ -106,6 +106,10 @@ button:focus-visible,input:focus-visible{outline:3px solid var(--xp);outline-off
 #log .bad{color:var(--bad);}
 #log .good{color:var(--good);}
 #log .join{color:var(--xp);font-weight:600;}
+#log .death{color:var(--bad);font-weight:700;}
+#log .mile{color:var(--ink);background:var(--accent);color:var(--on-accent);font-weight:600;padding:3px 6px;border-radius:6px;}
+button.hot{background:var(--accent);color:var(--on-accent);}
+button[aria-pressed="true"]{background:var(--well);}
 #log small{color:var(--muted);margin-right:6px;}
 
 #modal{position:fixed;inset:0;z-index:5;display:flex;align-items:flex-start;justify-content:center;padding:calc(12px + env(safe-area-inset-top,0px)) 10px 12px;background:rgba(10,14,34,.66);overflow-y:auto;}
@@ -177,9 +181,9 @@ function fmt(n) {
 // Every hero, yours and the hundred premade ones, is built from the same 20 points
 // across these six attributes, and earns 2 more per level.
 const ATTR = [["Might", "Hits harder."], ["Vigor", "More health."], ["Guard", "Takes less damage."], ["Haste", "Attacks more often."], ["Luck", "More critical hits and better finds."], ["Wits", "Stronger skills, used more often."]];
-const BUILD = 20, PER_LVL = 2, DT = 0.25, MAXSLOTS = 6, OFFLINE_CAP = 8 * 3600;
-const GE = 1.14, GX = 1.13, RAGE = 45;
-const SLOT_AT = [1, 3, 10, 25, 50, 100];
+const BUILD = 20, PER_LVL = 2, DT = 0.25, MAXSLOTS = 6;
+const GE = 1.185, GX = 1.13, RAGE = 45;
+const SLOT_AT = [1, 3, 8, 15, 30, 50];
 const SKILL_AT = [1, 10, 30];
 // Skill types: strike (one foe), cleave (all foes), dot (damage over 6 seconds), heal (weakest ally),
 // healall, buff (whole party: guard, haste, might or luck), stunall.
@@ -279,6 +283,16 @@ const ZA = ["Mildly Haunted", "Suspiciously Quiet", "Overly Damp", "Aggressively
 const ZP = ["Meadow", "Swamp", "Turnip Fields", "Catacombs", "Gift Shop", "Mountain Pass", "Forest", "Village Fête", "Ruins", "Beach", "Castle Corridor", "Mushroom Cave"];
 const EA = ["Grumpy", "Damp", "Rude", "Sticky", "Overconfident", "Sleepy", "Passive-Aggressive", "Feral", "Smug", "Off-Brand", "Underpaid", "Loud"];
 const EC = [["Goblin", "h"], ["Slime", "s"], ["Rat", "r"], ["Bat", "b"], ["Skeleton", "k"], ["Spider", "i"], ["Wolf", "d"], ["Lizard", "l"], ["Ghost", "g"], ["Golem", "m"], ["Ogre", "G"], ["Eyeball", "e"], ["Goose", "b"], ["Henchman", "h"]];
+// Each kind of foe trades health, damage and speed against a trick, so no wave is simply the best one to meet.
+// big foes count as two. dodge: chance to avoid a plain attack. pierce: ignores Guard. hunt: goes for the weakest hero.
+// hide: takes less damage. spook: ignores whoever is standing in front. cleave: also hits everyone else for part. blast: hits everyone.
+const KIND = {
+  h: { hp: 1, atk: 1, iv: 1.9, note: "Ordinary." }, s: { hp: 1.6, atk: 0.7, iv: 2.4, note: "Tough and slow." }, r: { hp: 0.55, atk: 0.6, iv: 1.1, note: "Weak but quick." },
+  b: { hp: 0.7, atk: 0.8, iv: 1.4, dodge: 0.2, note: "Dodges one attack in five." }, k: { hp: 0.9, atk: 1.25, iv: 1.9, note: "Hits hard." }, i: { hp: 0.8, atk: 0.75, iv: 1.7, pierce: 1, note: "Its bite ignores Guard." },
+  d: { hp: 0.9, atk: 1, iv: 1.5, hunt: 1, note: "Goes for the weakest hero." }, l: { hp: 1.1, atk: 0.95, iv: 1.9, hide: 0.25, note: "Thick hide: takes a quarter less damage." }, g: { hp: 0.7, atk: 1, iv: 1.9, spook: 1, note: "Floats past whoever is in front." },
+  m: { hp: 2.3, atk: 1.4, iv: 2.9, big: 1, note: "Huge, slow, counts as two." }, G: { hp: 1.9, atk: 1.1, iv: 2.6, cleave: 0.5, big: 1, note: "Its swing clips everyone. Counts as two." }, e: { hp: 0.8, atk: 0.45, iv: 2.4, blast: 1, note: "Glares at the whole party at once." }
+};
+const BOSSK = [["Bruiser", "Every third attack hits everyone."], ["Summoner", "Calls two helpers at half health."], ["Sore Loser", "Attacks much faster when nearly beaten."]];
 const RANKS = ["Second-Best Henchman", "Accountant", "Nephew", "Landlord", "Personal Trainer", "Decoy", "Cousin Who Needed a Job", "Dentist", "Understudy", "Lawyer", "Hat Polisher", "Biggest Fan"];
 const RAR = ["Ordinary", "Decent", "Fancy", "Heroic", "Legendary"];
 const GEAR = { w: ["Spoon", "Stick", "Baguette", "Frying Pan", "Umbrella", "Rolling Pin", "Trout", "Ladle", "Broom", "Rake", "Sock Full of Coins", "Actual Sword"], a: ["Cardigan", "Barrel", "Apron", "Raincoat", "Dressing Gown", "Chainmail Vest", "Colander Helmet", "Oven Mitts", "Quilt", "Saucepan Lid"], t: ["Lucky Button", "Pet Pebble", "Bottle Cap", "Friendship Bracelet", "Odd Marble", "Tiny Hat", "Whistle", "Four-Leaf Clover", "Mystery Key"] };
@@ -292,12 +306,45 @@ function tell(t, boss) {
   return t.replace(/\{v\}/g, v.n).replace(/\{it2\}/g, it2).replace(/\{It2\}/g, it2[0].toUpperCase() + it2.slice(1)).replace(/\{lair\}/g, v.lair).replace(/\{clue\}/g, v.clue).replace(/\{boss\}/g, boss || "boss");
 }
 
+// Names for heroes who come back.
+const FIRST = ["Edna", "Colin", "Mavis", "Bert", "Doris", "Nigel", "Winifred", "Clive", "Agnes", "Horace", "Beryl", "Stanley", "Ethel", "Gilbert", "Maud", "Wilf", "Hettie", "Cyril", "Dot", "Ernest", "Ivy", "Mungo", "Pearl", "Rupert", "Olive", "Basil", "Nora", "Hamish", "Gertie", "Lionel"];
+const AGAIN = ["Again", "Twice-Born", "the Recently Late", "Second-Wind", "Déjà Vu", "the Returned", "Round Two", "the Familiar", "Back-So-Soon", "the Refurbished", "Not-Dead-Yet", "the Sequel", "Mark Two", "the Unfinished", "Encore", "the Stubborn", "Take Two", "the Recycled", "Once-More", "the Persistent"];
+const ROMAN = ["", "", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X"];
+
+// ================= Things to spend Grudge on =================
+// Grudge comes from milestones and from starting a new chase. Like everything else here, it is points you spend.
+const PERKS = [
+  { k: "dmg", n: "Righteous Fury", d: "Everyone hits 15% harder. Each level multiplies the last.", max: 25 },
+  { k: "hp", n: "Thick Socks", d: "Everyone has 15% more health. Each level multiplies the last.", max: 25 },
+  { k: "xp", n: "Lessons Learned", d: "20% more experience.", max: 25 },
+  { k: "loot", n: "Keen Eyes", d: "15% more finds, and better ones.", max: 10 },
+  { k: "away", n: "Night Shift", d: "The party runs 2 hours longer without you.", max: 8 },
+  { k: "bench", n: "Homework", d: "Benched heroes earn 10% of the party's experience.", max: 5 },
+  { k: "soft", n: "Soft Landing", d: "A flattened hero is 1% less likely to die.", max: 5 },
+  { k: "soul", n: "Old Souls", d: "Reincarnated heroes get 1 more build point per life.", max: 5 },
+  { k: "head", n: "Shortcut", d: "New chases start 3 stages further on.", max: 10 }
+];
+const perk = k => (G.perks && G.perks[k]) || 0;
+const perkCost = k => 1 + Math.floor(perk(k) / 2);
+const offlineCap = () => (8 + 2 * perk("away")) * 3600;
+const tiers = (key, name, desc, list, get, r) => list.map((v, i) => ({ k: key + v, n: name + " " + ["I", "II", "III", "IV", "V", "VI", "VII", "VIII", "IX", "X", "XI", "XII", "XIII", "XIV"][i], d: desc.replace("#", v >= 1000 ? fmt(v) : v), test: () => get() >= v, r: r ? r(v, i) : 1 }));
+const MILES = [].concat(
+  tiers("st", "Still Following", "Clear stage #.", [5, 10, 20, 30, 40, 50, 60, 80, 100, 125, 150, 200, 250, 300], () => G.record, (v, i) => i < 4 ? 1 : i < 8 ? 2 : 3),
+  tiers("ki", "Clearing the Road", "Beat # foes.", [50, 500, 5000, 50000, 500000], () => G.n.kills, (v, i) => i + 1),
+  tiers("he", "Not Alone", "Find # heroes.", [3, 6, 10, 20, 35, 50, 75, 100], () => G.got, (v, i) => i < 3 ? 1 : 2),
+  tiers("re", "Familiar Faces", "Have # heroes die and come back.", [1, 3, 10, 25], () => G.grave.length, (v, i) => i + 1),
+  tiers("wi", "Character Building", "Be flattened # times.", [1, 25, 250], () => G.n.wipes),
+  tiers("lv", "Getting Somewhere", "Reach a combined party level of #.", [50, 150, 300, 600, 1000], () => party().reduce((s, h) => s + h.lvl, 0), (v, i) => i + 1),
+  tiers("ch", "Long Memory", "Start # new chases.", [1, 3, 10], () => G.chase, (v, i) => i + 2),
+  [{ k: "leg", n: "Ooh, Shiny", d: "Find something Legendary.", test: () => G.n.legend > 0, r: 2 }]
+);
+
 // ================= State =================
 let G = null, QUIET = false;
 const FX = [];
-const def = id => id === 100 ? G.me : HERO[id];
-const xpNeed = l => 25 * Math.pow(1.17, l - 1);
-function say(t, k) { G.log.push({ t, k: k || "", s: G.stage }); if (G.log.length > 60) G.log.shift(); }
+const def = id => id === 100 ? G.me : id < 100 ? HERO[id] : G.souls[id];
+const xpNeed = l => 40 * Math.pow(1.17, l - 1);
+function say(t, k) { G.log.push({ t, k: k || "", s: G.stage }); if (G.log.length > 70) G.log.shift(); }
 function fx(o) { if (!QUIET) { FX.push(o); if (FX.length > 50) FX.shift(); } }
 
 function gearPow(g) { return g ? (1 + 0.35 * g.r) * Math.pow(1.045, g.l) : 0; }
@@ -310,8 +357,8 @@ function attrs(h) {
 function stats(h) {
   const a = attrs(h), lm = Math.pow(1.085, h.lvl - 1), c = CLS[def(h.id).cls];
   return {
-    a, atk: 5 * lm * (1 + 0.05 * a[0]) * (1 + 0.3 * gearPow(h.gear.w)),
-    hp: 45 * lm * (1 + 0.05 * a[1]) * (1 + 0.3 * gearPow(h.gear.a)),
+    a, atk: 5 * lm * (1 + 0.05 * a[0]) * (1 + 0.3 * gearPow(h.gear.w)) * Math.pow(1.15, perk("dmg")),
+    hp: 45 * lm * (1 + 0.05 * a[1]) * (1 + 0.3 * gearPow(h.gear.a)) * Math.pow(1.15, perk("hp")),
     dr: Math.min(0.8, a[2] / (a[2] + 45)),
     iv: Math.max(0.3, 1.5 / (1 + 0.025 * a[3])),
     crit: Math.min(0.6, 0.05 + 0.006 * a[4]), luck: a[4],
@@ -341,7 +388,9 @@ function autoSpend(h) {
   }
 }
 const party = () => G.party.filter(id => id != null).map(id => G.heroes[id]);
-const avgLvl = () => { const p = party(); return p.length ? p.reduce((s, h) => s + h.lvl, 0) / p.length : 1; };
+const avgLvl = () => { const p = party(); return p.length ? p.reduce((s, h) => s + h.lvl, 0) / p.length : G.lastLvl || 1; };
+const trinketVal = g => Math.round((3 + g.l * 0.15) * (1 + 0.5 * g.r));
+function topAttr(h) { const b = def(h.id).build, o = [0, 1, 2, 3, 4, 5].sort((x, y) => b[y] - b[x]); return o[rnd(3)]; }
 function issue(h) {
   // Anyone joining the party gets standard-issue kit so they are not hopeless.
   const l = Math.max(1, Math.floor(G.best * 0.7));
@@ -352,37 +401,58 @@ function issue(h) {
   }
   h.hp = stats(h).hp; h.ko = false;
 }
-const trinketVal = g => Math.round((3 + g.l * 0.15) * (1 + 0.5 * g.r));
-function topAttr(h) { const b = def(h.id).build, o = [0, 1, 2, 3, 4, 5].sort((x, y) => b[y] - b[x]); return o[rnd(3)]; }
-function unlockCount(b) { return Math.min(100, b < 3 ? 0 : b < 6 ? 1 : b < 10 ? 2 : b < 15 ? 3 : b < 20 ? 4 : 5 + Math.floor((b - 20) / 4)); }
-const nextUnlockAt = () => { const n = G.got; return n >= 100 ? null : [3, 6, 10, 15, 20][n] || 20 + (n - 4) * 4; };
+const findNeed = () => 4 + Math.floor(G.got * 1.5);
 const slotsFor = b => SLOT_AT.filter(s => b + 1 >= s).length;
+const total = () => 101 + Object.keys(G.souls).length;
+const grudgeFor = b => b < 20 ? 0 : Math.floor(Math.pow(b / 10, 1.5));
 
 function newGame(o) {
   const order = HERO.map(h => h.id);
   for (let i = order.length - 1; i > 0; i--) { const j = rnd(i + 1); [order[i], order[j]] = [order[j], order[i]]; }
-  G = { v: 1, story: o.story, me: { id: 100, name: o.name || "You", cls: o.cls, build: o.build.slice(), lost: THINGS[o.story.t].it, skin: "#e8b88a", hair: "#5a3a1e" }, heroes: {}, party: [100, null, null, null, null, null], slots: 1, order, got: 0, stage: 1, best: 0, hold: 0, killed: 0, foes: [], wait: 0, buffs: {}, log: [], at: Date.now(), born: Date.now(), n: { kills: 0, wipes: 0, finds: 0, secs: 0 } };
+  G = { v: 2, story: o.story, me: { id: 100, name: o.name || "You", cls: o.cls, build: o.build.slice(), lost: THINGS[o.story.t].it, skin: "#e8b88a", hair: "#5a3a1e" }, heroes: {}, souls: {}, grave: [], nextId: 101, party: [100, null, null, null, null, null], slots: 1, order, got: 0, clears: 0, findIn: 4,
+    stage: 1, best: 0, record: 0, chase: 0, hold: 0, fails: 0, killed: 0, foes: [], wait: 0, clock: 0, buffs: {}, log: [], grudge: 0, perks: {}, done: {}, speed: 1, park: false, at: Date.now(), born: Date.now(), n: { kills: 0, wipes: 0, finds: 0, secs: 0, legend: 0 } };
   G.heroes[100] = newHero(100, 1);
   G.heroes[100].pts = BUILD - o.build.reduce((a, b) => a + b, 0);
   issue(G.heroes[100]);
   say(tell("{v} " + VILLAINS[o.story.v].how + " and took {it2}. You are going to get it back."), "story");
   nextWave();
 }
+// Bring an older save up to date.
+function upgrade(d) {
+  if (d.v === 2) return d;
+  d.v = 2; d.souls = {}; d.grave = []; d.nextId = 101; d.clears = Math.floor(d.n.kills / 6); d.findIn = 4 + Math.floor(d.got * 1.5);
+  d.record = d.best; d.stage = Math.max(1, Math.floor(d.stage * 0.7)); d.best = d.stage - 1; d.hold = 0; d.chase = 0; d.fails = d.fails || 0; d.clock = 0; d.grudge = 0; d.perks = {}; d.done = {}; d.speed = 1; d.park = false; d.n.legend = 0;
+  d.order = d.order.slice(d.got); d.got = Object.keys(d.heroes).length - 1; d.slots = SLOT_AT.filter(s => d.best + 1 >= s).length; d.foes = []; d.killed = 0; d.wait = 0.5;
+  return d;
+}
 
-// ================= The endless run =================
-function foe(s, boss) {
-  const z = zoneOf(s), g = Math.pow(GE, s - 1), c = boss ? ["", z % 2 ? "D" : "G"] : EC[(z * 3 + rnd(5)) % EC.length];
-  const e = { n: boss ? tell("{v}'s ") + RANKS[z % RANKS.length] : pick(EA) + " " + c[0], sh: c[1], boss: !!boss, max: 16 * g * (1 + s * 0.03) * (boss ? 7 : 1), atk: 2.6 * g * (boss ? 1.7 : 1), iv: boss ? 1.5 : 1.9, t: 0.6 + Math.random(), stun: 0, dot: 0, dotT: 0, hue: (z * 47) % 360, uid: G.uid = (G.uid || 0) + 1 };
+// ================= Foes =================
+function foe(s, sh, name, boss) {
+  const z = zoneOf(s), g = Math.pow(GE, s - 1), n = party().length, K = boss ? { hp: 6, atk: 1.5, iv: 1.6 } : KIND[sh];
+  const e = { n: name, sh, boss: boss || 0, max: 30 * g * K.hp * (0.5 + 0.5 * n), atk: 2.8 * g * K.atk * (0.8 + 0.2 * n), iv: K.iv, t: 0.6 + Math.random(), stun: 0, dot: 0, dotT: 0, hits: 0, hue: (z * 47) % 360, uid: G.uid = (G.uid || 0) + 1, w: K.big ? 2 : 1, hideK: K.hide || 0 };
   e.hp = e.max;
   return e;
 }
 const stageNeed = s => isBoss(s) ? 1 : 6;
 function nextWave() {
-  const s = G.stage, n = party().length;
-  if (isBoss(s)) G.foes = [foe(s, true)];
-  else { const left = stageNeed(s) - G.killed, k = Math.min(left, 1 + rnd(Math.min(3, n + 1))); G.foes = []; for (let i = 0; i < k; i++) G.foes.push(foe(s)); }
-  G.wait = 0.5;
+  const s = G.stage, z = zoneOf(s);
+  G.foes = [];
+  if (isBoss(s)) { const bk = 1 + z % 3; G.foes.push(foe(s, z % 2 ? "D" : "G", tell("{v}'s ") + RANKS[z % RANKS.length], bk)); }
+  else {
+    // Each zone has five kinds of foe. A wave is one to four of them, never more than the stage has left.
+    let room = Math.min(stageNeed(s) - G.killed, 1 + rnd(Math.min(4, party().length + 1)));
+    for (let guard = 0; room > 0 && guard < 12; guard++) {
+      const c = EC[(z * 3 + rnd(5)) % EC.length], K = KIND[c[1]];
+      if (K.big && room < 2) continue;
+      G.foes.push(foe(s, c[1], pick(EA) + " " + c[0]));
+      room -= K.big ? 2 : 1;
+    }
+    if (!G.foes.length) G.foes.push(foe(s, "h", pick(EA) + " Goblin"));
+  }
+  G.wait = 0.8; G.firstKo = null;
 }
+
+// ================= Growing =================
 function gainXp(h, x) {
   h.xp += x;
   let up = 0;
@@ -390,18 +460,19 @@ function gainXp(h, x) {
   if (up) {
     if (h.auto) autoSpend(h);
     if (!h.ko) h.hp = stats(h).hp;
-    fx({ k: "up", id: h.id });
-    for (let i = 0; i < 3; i++) if (SKILL_AT[i] > h.lvl - up && SKILL_AT[i] <= h.lvl && i > 0) say(def(h.id).name + " learned " + CLS[def(h.id).cls].sk[i][0] + ".", "good");
+    if (G.party.includes(h.id)) fx({ k: "up", id: h.id });
+    for (let i = 1; i < 3; i++) if (SKILL_AT[i] > h.lvl - up && SKILL_AT[i] <= h.lvl) say(def(h.id).name + " learned " + CLS[def(h.id).cls].sk[i][0] + ".", "good");
   }
 }
 function drop(e) {
-  const ps = party(), luckBuff = G.buffs.luck ? 2 : 1;
-  if (Math.random() > (e.boss ? 1 : 0.1 * luckBuff)) return;
-  const h = pick(ps), s = pick(GSLOT)[0], lf = 1 + stats(h).luck * 0.03, r = Math.random();
+  const ps = party(), lp = 1 + 0.15 * perk("loot");
+  if (Math.random() > (e.boss ? 1 : 0.1 * lp * (G.buffs.luck ? 2 : 1))) return;
+  const h = pick(ps), s = pick(GSLOT)[0], lf = (1 + stats(h).luck * 0.03) * lp, r = Math.random();
   const g = { s, l: G.stage, n: rnd(GEAR[s].length), r: r < 0.008 * lf ? 4 : r < 0.035 * lf ? 3 : r < 0.11 * lf ? 2 : r < 0.33 * lf ? 1 : 0 };
   if (e.boss && g.r < 1) g.r = 1;
   if (s === "t") { g.a = topAttr(h); g.v = trinketVal(g); }
   G.n.finds++;
+  if (g.r === 4) G.n.legend++;
   if (gearPow(g) > gearPow(h.gear[s]) * 1.001) {
     const full = !h.ko && h.hp >= stats(h).hp * 0.999;
     h.gear[s] = g;
@@ -410,21 +481,33 @@ function drop(e) {
     if (g.r >= 3) say(def(h.id).name + " found a " + gearName(g) + ".", "good");
   }
 }
-function unlocks() {
-  // New heroes and party slots arrive as the best stage climbs.
-  while (G.got < unlockCount(G.best)) {
-    const id = G.order[G.got++], h = newHero(id, Math.max(1, Math.floor(avgLvl() * 0.9)));
-    G.heroes[id] = h;
-    const d = def(id);
-    say(d.name + " the " + CLS[d.cls].n + " joins you. " + tell("{v}") + " took " + d.lost + ".", "join");
-    fx({ k: "join", id });
-  }
-  const sl = slotsFor(G.best);
+function milestones() {
+  for (const m of MILES) if (!G.done[m.k] && m.test()) { G.done[m.k] = 1; G.grudge += m.r; say("Milestone: " + m.n + ". " + m.d + " +" + m.r + " Grudge.", "mile"); fx({ k: "mile", t: m.n }); }
+}
+function buyPerk(k) {
+  const p = PERKS.find(x => x.k === k), c = perkCost(k);
+  if (!p || perk(k) >= p.max || G.grudge < c) return false;
+  G.grudge -= c; G.perks[k] = perk(k) + 1;
+  for (const h of party()) if (!h.ko) h.hp = Math.min(h.hp, stats(h).hp);
+  return true;
+}
+
+// ================= Finding, losing and finding heroes again =================
+function findNext() {
+  if (!G.order.length) return false;
+  const id = G.order.shift(), d = def(id), h = newHero(id, Math.max(1, Math.floor(avgLvl() * 0.9)));
+  G.heroes[id] = h; G.got++;
+  say(d.name + " the " + CLS[d.cls].n + " joins you. " + tell("{v}") + " took " + d.lost + "." + (d.past ? " So much for a theft-free reincarnation." : ""), "join");
+  fx({ k: "join", id });
+  return true;
+}
+function fillSlots() {
+  const sl = slotsFor(G.record);
   if (sl > G.slots) { G.slots = sl; say("Your party can now hold " + sl + " heroes.", "good"); }
   for (let i = 0; i < G.slots; i++) if (G.party[i] == null) {
-    const bench = Object.values(G.heroes).filter(h => !G.party.includes(h.id)).sort((a, b) => b.lvl - a.lvl)[0];
-    if (!bench) break;
-    place(i, bench.id);
+    const b = Object.values(G.heroes).filter(h => !G.party.includes(h.id)).sort((a, c) => c.lvl - a.lvl)[0];
+    if (!b) break;
+    place(i, b.id);
   }
 }
 function place(slot, id) {
@@ -436,40 +519,96 @@ function place(slot, id) {
   issue(h);
 }
 function bench(slot) { if (party().length > 1) G.party[slot] = null; }
+// A dead hero comes back as somebody new, with a few more build points for each life lived.
+function makeSoul(d) {
+  const lives = (d.lives || 1) + 1, bonus = Math.min(40, (lives - 1) * (2 + perk("soul"))), mine = d.id === 100 || d.mine;
+  let cls = rnd(CLS.length); if (cls === d.cls) cls = (cls + 1 + rnd(CLS.length - 1)) % CLS.length;
+  const root = mine ? (d.root || d.name) : null, w = CLS[cls].w.map(v => v * (0.7 + Math.random() * 0.6)), build = [0, 0, 0, 0, 0, 0], cap = 8 + Math.ceil(bonus / 2);
+  for (let i = 0; i < BUILD + bonus; i++) { const ok = w.map((v, k) => build[k] < cap ? v : 0), tot = ok.reduce((a, b) => a + b, 0); let x = Math.random() * tot, k = 0; while (k < 5 && (x -= ok[k]) > 0) k++; build[k]++; }
+  let name = mine ? root + " " + (ROMAN[lives] || "the " + lives + "th") : pick(FIRST) + " " + pick(AGAIN);
+  return { id: G.nextId++, name, cls, build, lives, mine, root, past: d.name, lost: pick(ALSO), skin: pick(["#e8b88a", "#cf9468", "#f0dcc0", "#a8744c", "#ecc49c", "#8c5a3c"]), hair: pick(["#5a3a1e", "#b5522a", "#e8d27a", "#26262c", "#c9c9d1", "#7a4a22", "#d98ac0"]) };
+}
+function die(h) {
+  const d = def(h.id), nd = makeSoul(d);
+  G.souls[nd.id] = nd;
+  G.grave.push({ id: h.id, name: d.name, cls: d.cls, to: nd.id, lvl: h.lvl, s: G.stage });
+  G.lastLvl = Math.max(h.lvl, avgLvl());
+  delete G.heroes[h.id];
+  const slot = G.party.indexOf(h.id); if (slot >= 0) G.party[slot] = null;
+  G.order.unshift(nd.id);
+  say(d.name + " the " + CLS[d.cls].n + " has died. They are reincarnated as " + nd.name + " the " + CLS[nd.cls].n + ". Let's hope they have a theft-free reincarnation.", "death");
+  fx({ k: "death", t: d.name + " → " + nd.name });
+  if (!Object.keys(G.heroes).length) findNext();
+  fillSlots();
+}
+const deathChance = () => G.record < 10 ? 0 : Math.max(0.02, 0.07 - 0.01 * perk("soft"));
+
+// ================= The endless run =================
 function stageClear() {
   const s = G.stage, first = s > G.best;
+  G.clears++;
   if (first) {
     G.best = s; G.fails = 0;
-    if (isBoss(s)) { say(tell(ESCAPES[(zoneOf(s) + G.story.t) % ESCAPES.length], RANKS[zoneOf(s) % RANKS.length]), "story"); say("Next: " + zoneName(zoneOf(s + 1)) + ".", ""); }
-    else if (s % 10 === 5 && s > 5) say(tell(POSTCARDS[(zoneOf(s) + G.story.v) % POSTCARDS.length]), "story");
-    unlocks();
+    if (s > G.record) G.record = s;
+    if (isBoss(s)) { say(tell(ESCAPES[(zoneOf(s) + G.story.t + G.chase) % ESCAPES.length], RANKS[zoneOf(s) % RANKS.length]), "story"); say("Next: " + zoneName(zoneOf(s + 1)) + ".", ""); }
+    else if (s % 10 === 5) say(tell(POSTCARDS[(zoneOf(s) + G.story.v + G.chase) % POSTCARDS.length]), "story");
   }
+  if (--G.findIn <= 0) { findNext(); G.findIn = findNeed(); }
+  fillSlots();
+  milestones();
   for (const h of party()) { h.ko = false; h.hp = stats(h).hp; }
-  if (G.hold > 0) G.hold--; else G.stage++;
+  if (G.hold > 0) G.hold--; else if (!G.park) G.stage++;
   G.killed = 0; G.clock = 0;
   nextWave();
 }
 function wipe() {
   G.n.wipes++;
-  const s = G.stage;
+  const s = G.stage, victim = G.firstKo != null ? G.heroes[G.firstKo] : null;
   G.fails = (G.fails || 0) + 1;
   G.stage = Math.max(1, s - 2); G.hold = Math.min(20, 2 + G.fails * 2); G.killed = 0; G.buffs = {}; G.clock = 0;
-  for (const h of party()) { h.ko = false; h.hp = stats(h).hp; h.t = 1; }
   const last = G.log[G.log.length - 1], text = "The party is flattened at stage " + s + " and falls back to train.";
   if (last && last.k === "bad") { last.t = text; last.s = G.stage; } else say(text, "bad");
   fx({ k: "wipe" });
+  if (victim && Math.random() < deathChance()) die(victim);
+  for (const h of party()) { h.ko = false; h.hp = stats(h).hp; h.t = 1; }
+  milestones();
   nextWave();
+}
+// Give up the trail and start again from the beginning, angrier.
+function newChase() {
+  const gain = grudgeFor(G.best);
+  if (gain <= 0) return false;
+  G.grudge += gain; G.chase++;
+  for (const h of Object.values(G.heroes)) { h.lvl = 1; h.xp = 0; h.pts = 0; h.add = [0, 0, 0, 0, 0, 0]; h.gear = {}; h.cd = [3, 6, 9]; h.t = 1; h.ko = false; }
+  G.best = 0; G.stage = 1 + 3 * perk("head"); G.hold = 0; G.fails = 0; G.killed = 0; G.buffs = {}; G.clock = 0; G.park = false;
+  G.story.p = (G.story.p + 1) % PLANS.length;
+  for (const h of Object.values(G.heroes)) issue(h);
+  say(tell("{v} has moved house. The trail starts again from the beginning. You gain " + gain + " Grudge."), "story");
+  milestones();
+  nextWave();
+  return true;
 }
 function hitFoe(e, dmg, h, crit) {
   if (e.hp <= 0) return;
+  if (e.hideK) dmg *= 1 - e.hideK;
   e.hp -= dmg;
   fx({ k: "num", e: e.uid, t: fmt(dmg), crit });
+  if (e.boss === 2 && !e.called && e.hp > 0 && e.hp < e.max * 0.5) { e.called = 1; for (let i = 0; i < 2; i++) { const m = foe(G.stage, "h", "Hired Help"); m.max *= 0.6; m.hp = m.max; m.add = 1; G.foes.push(m); } fx({ k: "mile", t: "Help arrives" }); }
   if (e.hp <= 0) {
-    G.n.kills++; G.killed++;
-    const x = 5 * Math.pow(GX, G.stage - 1) * (e.boss ? 8 : 1);
+    G.n.kills++; if (!e.add) G.killed += e.w;
+    const x = 4 * Math.pow(GX, G.stage - 1) * (e.boss ? 8 : e.add ? 0.3 : e.w) * (1 + 0.2 * perk("xp"));
     for (const p of party()) gainXp(p, x);
+    const bx = x * 0.1 * perk("bench");
+    if (bx > 0) for (const p of Object.values(G.heroes)) if (!G.party.includes(p.id)) gainXp(p, bx);
     drop(e);
   }
+}
+function hitHero(h, st, raw, e, pierce) {
+  if (h.ko) return;
+  const guard = G.buffs.guard ? 1 - G.buffs.guard.v : 1, dmg = raw * (pierce ? 1 : 1 - st.dr) * guard * (0.85 + Math.random() * 0.3);
+  h.hp -= dmg;
+  fx({ k: "ouch", id: h.id, e: e.uid, t: fmt(dmg) });
+  if (h.hp <= 0) { h.hp = 0; h.ko = true; if (G.firstKo == null) G.firstKo = h.id; }
 }
 function cast(h, st, i) {
   const sk = CLS[def(h.id).cls].sk[i], [name, cd, type, o] = sk, live = G.foes.filter(e => e.hp > 0), ps = party().filter(p => !p.ko);
@@ -493,49 +632,58 @@ function cast(h, st, i) {
 function tick() {
   G.n.secs += DT;
   if (G.wait > 0) { G.wait -= DT; return; }
-  G.clock = (G.clock || 0) + DT;
-  const rage = G.clock > RAGE ? Math.pow(1.12, G.clock - RAGE) : 1;
+  G.clock += DT;
+  const limit = isBoss(G.stage) ? RAGE * 1.5 : RAGE, rage = G.clock > limit ? Math.pow(1.12, G.clock - limit) : 1;
   const ps = party();
   for (const k in G.buffs) { G.buffs[k].t -= DT; if (G.buffs[k].t <= 0) delete G.buffs[k]; }
-  const haste = G.buffs.haste ? 1 + G.buffs.haste.v : 1, might = G.buffs.might ? 1 + G.buffs.might.v : 1, guard = G.buffs.guard ? 1 - G.buffs.guard.v : 1;
-  for (const h of ps) {
-    if (h.ko) continue;
-    const st = stats(h);
+  const haste = G.buffs.haste ? 1 + G.buffs.haste.v : 1, might = G.buffs.might ? 1 + G.buffs.might.v : 1;
+  const sts = ps.map(stats);
+  ps.forEach((h, j) => {
+    if (h.ko) return;
+    const st = sts[j];
     h.hp = Math.min(st.hp, h.hp + st.hp * 0.004 * DT);
     for (let i = 0; i < 3; i++) { if (h.lvl < SKILL_AT[i]) continue; h.cd[i] -= DT; if (h.cd[i] <= 0 && !cast(h, st, i)) h.cd[i] = 0.5; }
     h.t -= DT * haste;
     if (h.t <= 0) {
       h.t += st.iv;
       const e = G.foes.find(e => e.hp > 0);
-      if (e) { const crit = Math.random() < st.crit; fx({ k: "hit", id: h.id }); hitFoe(e, st.atk * might * (crit ? 2 : 1), h, crit); }
+      if (!e) return;
+      fx({ k: "hit", id: h.id });
+      if (KIND[e.sh] && KIND[e.sh].dodge && !e.boss && e.stun <= 0 && Math.random() < KIND[e.sh].dodge) { fx({ k: "miss", e: e.uid }); return; }
+      const crit = Math.random() < st.crit;
+      hitFoe(e, st.atk * might * (crit ? 2 : 1), h, crit);
     }
-  }
+  });
   for (const e of G.foes) {
     if (e.hp <= 0) continue;
+    const K = e.boss ? {} : KIND[e.sh];
     if (e.dotT > 0) { e.dotT -= DT; hitFoe(e, e.dot * DT, null, false); if (e.hp <= 0) continue; }
     if (e.stun > 0) { e.stun -= DT; continue; }
-    e.t -= DT;
+    e.t -= DT * (e.boss === 3 && e.hp < e.max * 0.3 ? 1.7 : 1);
     if (e.t > 0) continue;
-    e.t += e.iv;
-    const live = ps.filter(h => !h.ko);
+    e.t += e.iv; e.hits++;
+    const live = [];
+    ps.forEach((h, j) => { if (!h.ko) live.push(j); });
     if (!live.length) break;
-    let tot = 0; const ws = live.map(h => { const w = CLS[def(h.id).cls].tank; tot += w; return w; });
-    let x = Math.random() * tot, k = 0; while (k < live.length - 1 && (x -= ws[k]) > 0) k++;
-    const h = live[k], st = stats(h), dmg = e.atk * rage * (1 - st.dr) * guard * (0.85 + Math.random() * 0.3);
-    h.hp -= dmg;
-    fx({ k: "ouch", id: h.id, e: e.uid, t: fmt(dmg) });
-    if (h.hp <= 0) { h.hp = 0; h.ko = true; }
+    const raw = e.atk * rage;
+    if (K.blast || (e.boss === 1 && e.hits % 3 === 0)) { for (const j of live) hitHero(ps[j], sts[j], raw * (e.boss ? 0.6 : 1), e); continue; }
+    let k = live[0];
+    if (K.hunt) { let bf = 9; for (const j of live) { const f = ps[j].hp / sts[j].hp; if (f < bf) { bf = f; k = j; } } }
+    else if (K.spook) k = live[rnd(live.length)];
+    else { let tot = 0; for (const j of live) tot += sts[j].tank; let x = Math.random() * tot; for (const j of live) { k = j; if ((x -= sts[j].tank) <= 0) break; } }
+    hitHero(ps[k], sts[k], raw, e, K.pierce);
+    if (K.cleave) for (const j of live) if (j !== k) hitHero(ps[j], sts[j], raw * K.cleave, e);
   }
   if (ps.every(h => h.ko)) { wipe(); return; }
   if (G.foes.every(e => e.hp <= 0)) { if (G.killed >= stageNeed(G.stage)) stageClear(); else nextWave(); }
 }
 // Run the game forward by a number of seconds without drawing anything.
 function fastForward(secs) {
-  const before = { stage: G.best, lv: party().reduce((s, h) => s + h.lvl, 0), finds: G.n.finds, got: G.got };
+  const cap = offlineCap(), before = { stage: G.best, lv: party().reduce((s, h) => s + h.lvl, 0), finds: G.n.finds, got: G.got, dead: G.grave.length, grudge: G.grudge };
   QUIET = true;
-  for (let n = Math.floor(Math.min(secs, OFFLINE_CAP) / DT); n > 0; n--) tick();
+  for (let n = Math.floor(Math.min(secs, cap) / DT); n > 0; n--) tick();
   QUIET = false;
-  return { secs: Math.min(secs, OFFLINE_CAP), stages: G.best - before.stage, levels: party().reduce((s, h) => s + h.lvl, 0) - before.lv, finds: G.n.finds - before.finds, joined: G.got - before.got };
+  return { secs: Math.min(secs, cap), capped: secs >= cap, stages: G.best - before.stage, levels: party().reduce((s, h) => s + h.lvl, 0) - before.lv, finds: G.n.finds - before.finds, joined: G.got - before.got, dead: G.grave.length - before.dead, grudge: G.grudge - before.grudge };
 }
 const SPR = {"P":["...kkkkkk...","..khhhhhhk..","..khsssshk..","..kskssksk..","..kssssssk..","...kkaakk...","..kaaaaaak..",".ksaaaaaask.",".kskabbaksk.","...kaaaak...","...kbk.kbk..","...kkk.kkk.."],"h":["...kkkkkk...","..kaaaaaak..","..kaaaaaak..","..kawaawak..","..kaaaaaak..","...kkbbkk...","..kbbbbbbk..",".kabbbbbbak.",".kakbbbbkak.","...kbbbbk...","...kak.kak..","...kkk.kkk.."],"G":["...kkkkkk...","..kaaaaaak..","..kawaawak..","..kaaaaaak..",".kkkabbakkk.","kaaaaaaaaaak","kaakaaaakaak","kaakaaaakaak","kcckabbakcck",".kk.kaak.kk.","..kaakkaak..","..kkkkkkkk.."],"r":["............","............","............","............","..kk........",".kaak..kkk..",".kaaakkaaak.","kawaaaaaaak.","kaaaaaaaaakk",".kkaaaaaak.k","...kk..kk..k","..........k."],"b":["............","k..........k","kk..k..k..kk","kak.kkkk.kak","kaakaaaakaak","kaaawaawaaak",".kaaaaaaaak.",".ka.kaak.ak.",".k...kk...k.","............","............","............"],"s":["............","............","............","....kkkk....","...kaccak...","..kaacaaak..",".kaawaawaak.",".kaaaaaaaak.","kaaaaaaaaaak","kabaaaaaabak",".kkkkkkkkkk.","............"],"i":["............","............","k..k....k..k",".k.k.kk.k.k.","..kkkaakkk..","kkkaaaaaakkk","..kawaawak..","kkkaaaaaakkk","..kkaaaakk..",".k.k.kk.k.k.","k..k....k..k","............"],"g":["....kkkk....","..kkcccckk..",".kcccccccck.",".kcckcckccck",".kcckcckccck",".kcccccccck.",".kcccccccck.",".kaaaaaaaak.",".kaaaaaaaak.",".kakaakaakak",".kk.kk.kk.k.","............"],"k":["....kkkk....","...kwwwwk...","...kkwwkk...","...kwwwwk...","....kwwk....","..kkkaakkk..",".kwkawwakwk.",".kw.kaak.wk.",".k..kwwk..k.","....kwwk....","...kwk.kwk..","...kk..kk..."],"d":["............","............",".kk.........","kaak......k.","kawakkkkkkak","kaaaaaaaaaak",".kkaaaaaaaak","..kaaaaaaak.","..kakkkkkak.","..kak...kak.","..kk....kk..","............"],"l":["............",".....kkkk...","....kaaaak..","....kawaak..",".....kkaak..","..kkkkaak...",".kaaaaak....","kaakkkk.....","kaak..kkkk..",".kaakkaaaak.","..kaaaakkk..","...kkkk....."],"D":["..k......kk.",".kak....kaak",".kaak..kawak","kaaak.kaaakk","kaaaakaaak..","kaaaaaaaak..",".kaaaaaaak..","..kaaaaaaak.","..kaakkaaak.","..kak..kaakk","..kk...kkaak",".........kk."],"m":[".....kk.....","....kyyk....","..kkkkkkkk..","..kaaaaaak..","..karaarak..","..kaaaaaak..",".kkkkkkkkkk.","kakabbbbakak","kakabbbbakak",".k.kaaaak.k.","...kak.kak..","..kkkk.kkkk."],"e":["............","...kkkkkk...","..kaaaaaak..",".kaawwwwaak.",".kawwkkwwak.",".kawwkkwwak.",".kaawwwwaak.","..kaaaaaak..",".k.kkkkkk.k.",".k.k.kk.k.k.","k..k.k..k..k","............"]};
 // ================= Interface =================
@@ -547,12 +695,12 @@ if (typeof document !== "undefined") {
   const darkQ = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : { matches: false };
   const isDark = () => { const t = document.documentElement.dataset.theme; return t ? t === "dark" : darkQ.matches; };
   const canvas = $("scene"), ctx = canvas.getContext("2d");
-  let modal = null, setup = null, acc = 0, hudAt = 0, saveAt = 0, partySig = "", logSig = "", walk = 0, sheetSig = "", toolSig = "", confirmReset = false;
+  let modal = null, setup = null, acc = 0, hudAt = 0, saveAt = 0, partySig = "", logSig = "", walk = 0, sheetSig = "", toolSig = "", confirmReset = false, confirmChase = false;
   let cloud = null, cloudBusy = false, cloudAt = 0, freshStart = false, loadedAt = 0;
 
   // ---------- Saving: this browser first, and the viewer's own cloud slot when the page has one ----------
   const freeze = () => JSON.stringify(G);
-  function thaw(json) { try { const d = JSON.parse(json); return d && d.v === 1 && d.heroes && d.party && d.story ? d : null; } catch (e) { return null; } }
+  function thaw(json) { try { const d = JSON.parse(json); return d && (d.v === 1 || d.v === 2) && d.heroes && d.party && d.story ? upgrade(d) : null; } catch (e) { return null; } }
   function saveLocal() { if (!G) return; try { localStorage.setItem(SAVE_KEY, freeze()); } catch (e) {} }
   function loadLocal() { try { return thaw(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) { return null; } }
   function pushCloud() {
@@ -636,7 +784,10 @@ if (typeof document !== "undefined") {
       else if (e.k === "heal") { const p = PLACE[e.id]; if (p) FL.push({ x: p.x, y: p.y - p.s, t: "+", c: "#7ddc8a", big: 1, t0: now }); }
       else if (e.k === "up") { const p = PLACE[e.id]; if (p) FL.push({ x: clamp(p.x, 50, w - 50), y: p.y - p.s - 4, t: "Level up", c: "#ffcc33", tag: 1, t0: now }); }
       else if (e.k === "loot") { const p = PLACE[e.id]; if (p) FL.push({ x: p.x, y: p.y - p.s - 8, t: "★", c: RCOL[e.r], big: 1, t0: now }); }
-      else if (e.k === "wipe") banner = { t: "Flattened. Falling back to train.", t0: now };
+      else if (e.k === "miss") { const p = PLACE["e" + e.e]; if (p) FL.push({ x: p.x, y: p.y - p.s, t: "dodged", c: "#c9d2f0", tag: 1, t0: now }); }
+      else if (e.k === "wipe") { if (!banner || banner.hold !== 1) banner = { t: "Flattened. Falling back to train.", t0: now }; }
+      else if (e.k === "death") banner = { t: e.t, t0: now, hold: 1, c: "#ff9d94" };
+      else if (e.k === "mile") banner = { t: e.t, t0: now };
       else if (e.k === "join") banner = { t: def(e.id).name + " joins you", t0: now };
       if (FL.length > 40) FL.shift();
     }
@@ -659,10 +810,10 @@ if (typeof document !== "undefined") {
       if (e.hp <= 0 || G.wait > 0.25) { delete PLACE["e" + e.uid]; return; }
       const sc = e.boss ? 2 : 1, es = S * sc, a = AN["e" + e.uid] || {};
       const lunge = a.lunge && now - a.lunge < 160 ? Math.sin((now - a.lunge) / 160 * Math.PI) * S * 0.3 : 0;
-      const x = (e.boss ? w * 0.7 - es / 2 : w * 0.6 + k * S * 1.05) - lunge, y = gy + (k % 2 ? 4 : 0);
+      const x = (e.boss ? w * 0.72 - es / 2 : e.add ? w * 0.52 + (k - 1) * S * 0.2 - S * 0.3 : w * 0.58 + k * S * (w < 520 ? 0.82 : 1.05)) - lunge, y = gy + (e.add ? (k % 2 ? 10 : -6) : k % 2 ? 4 : 0);
       PLACE["e" + e.uid] = { x: x + es / 2, y, s: es };
       ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse(x + es / 2, y + 2, es * 0.36, es * 0.09, 0, 0, 6.3); ctx.fill();
-      const col = hsl((e.hue + hashStr(e.n) % 6 * 40) % 360, e.boss ? 65 : 50, 52);
+      const col = e.add ? "#8d99ae" : hsl((e.hue + hashStr(e.n) % 6 * 40) % 360, e.boss ? 65 : 50, 52);
       ctx.drawImage(sprite(e.sh, col, es * 2), Math.round(x), Math.round(y - es), es, es);
       if (a.flash && now - a.flash < 80) { ctx.globalAlpha = 0.5; ctx.fillStyle = "#fff"; ctx.fillRect(Math.round(x + es * 0.15), Math.round(y - es * 0.9), es * 0.7, es * 0.85); ctx.globalAlpha = 1; }
       if (e.stun > 0) { ctx.font = "800 " + Math.round(S * 0.4) + "px system-ui"; ctx.textAlign = "center"; ctx.fillStyle = "#ffcc33"; ctx.fillText("✱", x + es / 2, y - es - 2); }
@@ -673,6 +824,8 @@ if (typeof document !== "undefined") {
       ctx.font = "700 13px system-ui,sans-serif"; ctx.textAlign = "right"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(10,14,34,.8)"; ctx.fillStyle = "#fff";
       const label = e.n + "  " + fmt(Math.max(0, e.hp)) + " / " + fmt(e.max);
       ctx.strokeText(label, w - 10, 18); ctx.fillText(label, w - 10, 18);
+      const note = e.boss ? BOSSK[e.boss - 1][0] + ": " + BOSSK[e.boss - 1][1] : e.add ? "" : KIND[e.sh].note;
+      if (note && note !== "Ordinary.") { ctx.font = "600 11px system-ui,sans-serif"; ctx.fillStyle = "#ffe9a3"; ctx.strokeText(note, w - 10, 33); ctx.fillText(note, w - 10, 33); }
     }
     for (let i = FL.length - 1; i >= 0; i--) {
       const f = FL[i], life = f.tag ? 1100 : 700, u = (now - f.t0) / life;
@@ -685,9 +838,9 @@ if (typeof document !== "undefined") {
       ctx.globalAlpha = 1;
     }
     if (banner) {
-      const u = (now - banner.t0) / 2200;
+      const u = (now - banner.t0) / (banner.hold ? 3600 : 2200);
       if (u >= 1) banner = null;
-      else { ctx.globalAlpha = u < 0.8 ? 1 : 1 - (u - 0.8) / 0.2; ctx.fillStyle = "rgba(10,14,34,.8)"; ctx.fillRect(0, h * 0.3, w, 34); ctx.font = "800 16px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillStyle = "#ffcc33"; ctx.fillText(banner.t, w / 2, h * 0.3 + 22); ctx.globalAlpha = 1; }
+      else { ctx.globalAlpha = u < 0.8 ? 1 : 1 - (u - 0.8) / 0.2; ctx.fillStyle = "rgba(10,14,34,.8)"; ctx.fillRect(0, h * 0.3, w, 34); ctx.font = "800 16px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillStyle = banner.c || "#ffcc33"; ctx.fillText(banner.t, w / 2, h * 0.3 + 22); ctx.globalAlpha = 1; }
     }
   }
 
@@ -697,13 +850,14 @@ if (typeof document !== "undefined") {
     const s = G.stage, need = stageNeed(s);
     let pips = "";
     for (let i = 0; i < need; i++) pips += '<i class="' + (i < G.killed ? "on" : "") + '"></i>';
-    $("stage").innerHTML = "<b>Stage " + s + (isBoss(s) ? ", boss" : "") + '</b><span class="zone">' + esc(zoneName(zoneOf(s))) + (G.hold > 0 && s < G.best + 1 ? ", training before another try" : "") + '</span><span class="pips" aria-label="' + G.killed + " of " + need + ' foes beaten">' + pips + "</span><span>Best " + G.best + "</span>";
-    const sig = G.party.join(",") + "|" + G.slots + "|" + Object.keys(G.heroes).length;
+    $("stage").innerHTML = "<b>Stage " + s + (isBoss(s) ? ", boss" : "") + '</b><span class="zone">' + esc(zoneName(zoneOf(s))) + (G.park ? ", holding here" : G.hold > 0 ? ", training before another try" : "") + '</span><span class="pips" aria-label="' + G.killed + " of " + need + ' foes beaten">' + pips + "</span><span>Best " + G.best + (G.record > G.best ? ", record " + G.record : "") + "</span>";
+    const sig = G.party.join(",") + "|" + G.slots + "|" + Object.keys(G.heroes).join(",");
     if (sig !== partySig) {
       partySig = sig;
       const spare = Object.keys(G.heroes).length > party().length;
       $("party").innerHTML = G.party.map((id, i) => {
         if (i >= G.slots) return '<div class="card panel empty">Slot opens at stage ' + SLOT_AT[i] + "</div>";
+        if (id != null && !G.heroes[id]) return "";
         if (id == null) return '<button type="button" class="card empty" data-act="roster" data-arg="' + i + '">' + (spare ? "Empty. Choose a hero" : "Empty. Nobody to put here yet") + "</button>";
         const d = def(id);
         return '<button type="button" class="card" data-act="hero" data-arg="' + id + '" id="c' + id + '"><canvas data-hero="' + id + '" aria-hidden="true"></canvas><span class="nm">' + esc(shortName(d.name)) + '</span><span class="sub"></span><span class="bars"><span class="bar"><i></i></span><span class="bar x"><i></i></span></span><span class="pts" hidden></span></button>';
@@ -720,11 +874,14 @@ if (typeof document !== "undefined") {
       k[3].children[1].firstChild.style.width = clamp(h.xp / xpNeed(h.lvl) * 100, 0, 100) + "%";
       k[4].hidden = h.pts <= 0; k[4].textContent = h.pts + (h.pts === 1 ? " point" : " points");
     }
-    const total = Object.values(G.heroes).reduce((n, h) => n + h.pts, 0), ts = total + "|" + Object.keys(G.heroes).length;
+    const spare = Object.values(G.heroes).reduce((n, h) => n + h.pts, 0), ts = [spare, G.got, total(), G.grudge, G.speed, G.park].join("|");
     if (ts !== toolSig) {
       toolSig = ts;
-      $("tools").innerHTML = '<button type="button" data-act="roster">Heroes ' + Object.keys(G.heroes).length + " of 101</button>" +
-        (total ? '<button type="button" data-act="spendall">Spend all ' + total + " points for me</button>" : "") +
+      $("tools").innerHTML = '<button type="button" data-act="speed" aria-label="Game speed">Speed ' + G.speed + "×</button>" +
+        '<button type="button" data-act="park" aria-pressed="' + G.park + '">' + (G.park ? "Holding this stage" : "Pushing on") + "</button>" +
+        '<button type="button" data-act="roster">Heroes ' + Object.keys(G.heroes).length + " of " + total() + "</button>" +
+        '<button type="button" data-act="camp"' + (G.grudge ? ' class="hot"' : "") + ">Grudge" + (G.grudge ? " " + G.grudge : "") + "</button>" +
+        (spare ? '<button type="button" data-act="spendall">Spend all ' + spare + " hero points for me</button>" : "") +
         '<button type="button" data-act="tale">The story so far</button>';
     }
     const ls = G.log.length + "|" + (G.log.length ? G.log[G.log.length - 1].t : "");
@@ -734,7 +891,7 @@ if (typeof document !== "undefined") {
 
   // ---------- Windows ----------
   function show(html) { $("modal").innerHTML = '<div class="sheet panel" role="dialog" aria-modal="true">' + html + "</div>"; $("modal").hidden = false; paintSprites($("modal")); }
-  function closeModal() { modal = null; $("modal").hidden = true; confirmReset = false; }
+  function closeModal() { modal = null; $("modal").hidden = true; confirmReset = false; confirmChase = false; }
   const head = (t, sub, id) => '<div class="head">' + (id != null ? '<canvas data-hero="' + id + '" aria-hidden="true"></canvas>' : "") + "<div><h2>" + t + "</h2>" + (sub ? '<p class="muted">' + sub + "</p>" : "") + '</div><button type="button" data-act="close">Close</button></div>';
   function storyParts(S) {
     const v = VILLAINS[S.v], th = THINGS[S.t], plan = PLANS[S.p].replace(/\{v\}/g, v.n).replace(/\{lair\}/g, v.lair).replace(/\{clue\}/g, v.clue);
@@ -759,7 +916,7 @@ if (typeof document !== "undefined") {
   function sheetHtml(id) {
     const h = G.heroes[id], d = def(id), c = CLS[d.cls], slot = G.party.indexOf(id);
     const rows = ATTR.map(([n, ds], k) => '<li><span class="nm"><b>' + n + "</b><small>" + ds + '</small></span><span class="val" data-live="a' + k + '"></span><button type="button" data-act="sp" data-arg="' + k + ',1" data-pt>+1</button><button type="button" data-act="sp" data-arg="' + k + ',10" data-pt>+10</button></li>').join("");
-    return head(esc(d.name), '<span class="lvl">Level <span data-live="lvl"></span> ' + c.n + "</span>. " + esc(c.d) + (id === 100 ? "" : " " + esc(VILLAINS[G.story.v].n) + " took " + esc(d.lost) + "."), id) +
+    return head(esc(d.name), '<span class="lvl">Level <span data-live="lvl"></span> ' + c.n + "</span>. " + esc(c.d) + (id === 100 ? "" : " " + esc(VILLAINS[G.story.v].n) + " took " + esc(d.lost) + ".") + (d.past ? " Life " + d.lives + ", formerly " + esc(d.past) + ". Built from " + d.build.reduce((x, y) => x + y, 0) + " points instead of " + BUILD + "." : ""), id) +
       '<p><span class="budget"><span data-live="pts"></span> to spend</span> <button type="button" data-act="autoonce" data-pt>Spend them for me</button></p>' +
       '<label class="chk"><input type="checkbox" data-act="auto"' + (h.auto ? " checked" : "") + "> Keep spending " + esc(shortName(d.name)) + "'s points for me</label>" +
       '<ul class="rows">' + rows + "</ul>" +
@@ -768,7 +925,7 @@ if (typeof document !== "undefined") {
       '<p style="margin-top:14px">' + (slot >= 0 ? '<button type="button" data-act="roster" data-arg="' + slot + '">Swap for another hero</button> ' + (party().length > 1 ? '<button type="button" data-act="bench" data-arg="' + slot + '">Rest on the bench</button>' : "") : '<span class="muted">On the bench. Open an empty slot or swap someone out to bring them along.</span>') + "</p>";
   }
   function liveSheet() {
-    const id = modal.hero, h = G.heroes[id], root = $("modal"); if (!h || !root.querySelector('[data-live="stats"]')) return;
+    const id = modal.hero, h = G.heroes[id], root = $("modal"); if (!h) { closeModal(); return; } if ( !root.querySelector('[data-live="stats"]')) return;
     const st = stats(h), d = def(id), set = (k, v) => { const e = root.querySelector('[data-live="' + k + '"]'); if (e && e.textContent !== v) e.textContent = v; };
     set("lvl", "" + h.lvl); set("pts", h.pts + (h.pts === 1 ? " point" : " points"));
     for (let k = 0; k < 6; k++) set("a" + k, "" + st.a[k]);
@@ -784,23 +941,38 @@ if (typeof document !== "undefined") {
     const hs = Object.values(G.heroes).sort((a, b) => (G.party.includes(b.id) - G.party.includes(a.id)) || b.lvl - a.lvl);
     const rows = hs.map(h => {
       const d = def(h.id), inP = G.party.includes(h.id);
-      return '<li><canvas data-hero="' + h.id + '" aria-hidden="true"></canvas><span class="nm"><b>' + esc(d.name) + "</b>" + (h.pts ? ' <span class="budget">' + h.pts + "</span>" : "") + "<small>Level " + h.lvl + " " + CLS[d.cls].n + (inP ? ", in the party" : ", on the bench") + "</small></span>" +
+      return '<li><canvas data-hero="' + h.id + '" aria-hidden="true"></canvas><span class="nm"><b>' + esc(d.name) + "</b>" + (h.pts ? ' <span class="budget">' + h.pts + "</span>" : "") + "<small>Level " + h.lvl + " " + CLS[d.cls].n + (d.past ? ", life " + d.lives : "") + (inP ? ", in the party" : ", on the bench") + "</small></span>" +
         (slot != null && G.party[slot] !== h.id ? '<button type="button" data-act="place" data-arg="' + slot + "," + h.id + '">' + (inP ? "Move here" : "Pick") + "</button>" : "") + '<button type="button" data-act="hero" data-arg="' + h.id + '">Sheet</button></li>';
     }).join("");
-    const nx = nextUnlockAt();
-    return head(slot != null ? "Who goes in slot " + (slot + 1) + "?" : "Your heroes", hs.length + " of 101, counting you. " + (nx ? "The next one joins when you first clear stage " + nx + "." : "Everybody is here.")) + '<ul class="rows">' + rows + "</ul>" +
-      '<p class="muted" style="margin-top:10px">Heroes on the bench do not gain experience, but anyone you bring in is trained up close to the party\'s level and handed basic gear.</p>';
+    const lostSouls = G.order.filter(id => id > 100), firsts = G.order.length - lostSouls.length;
+    const out = lostSouls.map(id => { const d = def(id); return '<li class="locked"><span class="nm"><b>' + esc(d.name) + "</b><small>" + CLS[d.cls].n + ", life " + d.lives + ". Formerly " + esc(d.past) + ". Out there somewhere, being robbed.</small></span></li>"; }).join("") +
+      (firsts ? '<li class="locked"><span class="nm"><b>' + firsts + " of the original hundred</b><small>Not met yet.</small></span></li>" : "");
+    const grave = G.grave.slice().reverse().map(g => { const to = def(g.to); return '<li><span class="nm"><b>' + esc(g.name) + "</b><small>" + CLS[g.cls].n + ", died at stage " + g.s + ", level " + g.lvl + ". Came back as " + esc(to.name) + " the " + CLS[to.cls].n + ".</small></span></li>"; }).join("");
+    return head(slot != null ? "Who goes in slot " + (slot + 1) + "?" : "Your heroes", "Found " + hs.length + " of " + total() + ". " + (G.order.length ? "The next one turns up after " + G.findIn + " more stage clear" + (G.findIn === 1 ? "" : "s") + "." : "Everybody is here.")) + '<ul class="rows">' + rows + "</ul>" +
+      (slot == null ? (out ? "<h3>Still out there</h3><ul class=\"rows\">" + out + "</ul>" : "") + (grave ? "<h3>Fallen</h3><ul class=\"rows\">" + grave + "</ul>" : "") : "") +
+      '<p class="muted" style="margin-top:10px">A hero flattened first in a lost fight has a ' + Math.round(deathChance() * 100) + "% chance of dying for good" + (G.record < 10 ? " once you have cleared stage 10" : "") + ". They come back as somebody new with extra build points, and a new place opens in the collection for them.</p>";
+  }
+  function campHtml() {
+    const perks = PERKS.map(p => { const l = perk(p.k), c = perkCost(p.k); return '<li><span class="nm"><b>' + p.n + "</b> " + l + " of " + p.max + "<small>" + p.d + "</small></span>" + (l >= p.max ? "" : '<button type="button" data-act="perk" data-arg="' + p.k + '"' + (G.grudge < c ? " disabled" : "") + ">Spend " + c + "</button>") + "</li>"; }).join("");
+    const done = MILES.filter(m => G.done[m.k]).length, next = MILES.filter(m => !G.done[m.k]).slice(0, 40);
+    const seen = {}, miles = next.filter(m => { const key = m.k.slice(0, 2); if (seen[key]) return false; seen[key] = 1; return true; }).map(m => '<li><span class="nm"><b>' + m.n + "</b><small>" + m.d + '</small></span><span class="budget">+' + m.r + "</span></li>").join("");
+    const gain = grudgeFor(G.best);
+    return head("Grudge", "You are holding a grudge. Spend it.") +
+      '<p><span class="budget">' + G.grudge + " Grudge to spend</span></p>" + '<ul class="rows">' + perks + "</ul>" +
+      "<h3>Start a new chase</h3><p>" + (gain ? "Give up this trail and start again from the beginning for <b>" + gain + " Grudge</b>. " : "Clear stage 20 on this chase and you can give up the trail for Grudge. The further you get, the more it pays. ") + "Stage, levels, spent hero points and gear are lost. Heroes, party slots, Grudge spending and milestones are kept.</p>" +
+      '<p><button type="button" data-act="chase"' + (gain ? "" : " disabled") + ">" + (confirmChase ? "Really start again for " + gain + " Grudge?" : "Start a new chase") + "</button></p>" +
+      "<h3>Milestones, " + done + " of " + MILES.length + '</h3><ul class="rows">' + (miles || "<li>All done. Somehow.</li>") + "</ul>";
   }
   function taleHtml() {
     const p = storyParts(G.story), hrs = G.n.secs / 3600;
     return head(esc(p.v.n) + " still has " + esc(p.th.it) + ".") + p.panels +
-      '<div class="grid2"><div><span>Time on the road</span><b>' + (hrs >= 1 ? hrs.toFixed(1) + " hours" : Math.round(G.n.secs / 60) + " minutes") + "</b></div><div><span>Furthest stage</span><b>" + G.best + "</b></div><div><span>Foes beaten</span><b>" + fmt(G.n.kills) + "</b></div><div><span>Times flattened</span><b>" + G.n.wipes + "</b></div><div><span>Things found</span><b>" + fmt(G.n.finds) + "</b></div><div><span>Times you got it back</span><b>0</b></div></div>" +
+      '<div class="grid2"><div><span>Time on the road</span><b>' + (hrs >= 1 ? hrs.toFixed(1) + " hours" : Math.round(G.n.secs / 60) + " minutes") + "</b></div><div><span>Furthest stage</span><b>" + G.record + "</b></div><div><span>Foes beaten</span><b>" + fmt(G.n.kills) + "</b></div><div><span>Times flattened</span><b>" + G.n.wipes + "</b></div><div><span>Things found</span><b>" + fmt(G.n.finds) + "</b></div><div><span>Heroes lost and reborn</span><b>" + G.grave.length + "</b></div><div><span>Chases started</span><b>" + (G.chase + 1) + "</b></div><div><span>Times you got it back</span><b>0</b></div></div>" +
       '<p style="margin-top:16px"><button type="button" data-act="reset">' + (confirmReset ? "Really start over? Everything is lost" : "Start over with a new theft") + "</button></p>";
   }
   function awayHtml(r) {
     const m = Math.round(r.secs / 60);
-    return head("While you were away") + "<p>The party kept going for " + (m >= 120 ? (m / 60).toFixed(1) + " hours" : m + " minutes") + (r.secs >= OFFLINE_CAP ? ", which is as long as they will go without you" : "") + ".</p>" +
-      '<div class="grid2"><div><span>Stages gained</span><b>' + r.stages + "</b></div><div><span>Levels gained</span><b>" + r.levels + "</b></div><div><span>Things found</span><b>" + r.finds + "</b></div><div><span>Heroes joined</span><b>" + r.joined + "</b></div></div>" +
+    return head("While you were away") + "<p>The party kept going for " + (m >= 120 ? (m / 60).toFixed(1) + " hours" : m + " minutes") + (r.capped ? ", which is as long as they will go without you" : "") + ".</p>" +
+      '<div class="grid2"><div><span>Stages gained</span><b>' + r.stages + "</b></div><div><span>Levels gained</span><b>" + r.levels + "</b></div><div><span>Things found</span><b>" + r.finds + "</b></div><div><span>Heroes joined</span><b>" + r.joined + "</b></div><div><span>Heroes who died</span><b>" + r.dead + "</b></div><div><span>Grudge earned</span><b>" + r.grudge + "</b></div></div>" +
       "<p style=\"margin-top:12px\">" + esc(VILLAINS[G.story.v].n) + " still has " + esc(THINGS[G.story.t].it) + '.</p><button type="button" class="go" data-act="close">Carry on</button>';
   }
   function render() {
@@ -814,10 +986,12 @@ if (typeof document !== "undefined") {
     $("game").hidden = false;
     $("theft").innerHTML = "<b>" + esc(VILLAINS[G.story.v].n) + "</b> has " + esc(THINGS[G.story.t].it) + ". You are going to get it back.";
     drawHud();
+    if (modal && modal.hero != null && !G.heroes[modal.hero]) modal = null;
     if (!modal) { $("modal").hidden = true; return; }
     if (modal.hero != null) { sheetSig = ""; show(sheetHtml(modal.hero)); liveSheet(); }
     else if (modal.roster) show(rosterHtml(modal.slot));
     else if (modal.tale) show(taleHtml());
+    else if (modal.camp) show(campHtml());
     else if (modal.away) show(awayHtml(modal.away));
   }
   function suggest(cls) {
@@ -848,6 +1022,11 @@ if (typeof document !== "undefined") {
     else if (a === "hero") modal = { hero: +arg };
     else if (a === "roster") modal = { roster: 1, slot: arg == null ? null : +arg };
     else if (a === "tale") modal = { tale: 1 };
+    else if (a === "camp") { modal = { camp: 1 }; confirmChase = false; }
+    else if (a === "perk") buyPerk(arg);
+    else if (a === "chase") { if (!confirmChase) confirmChase = true; else { newChase(); confirmChase = false; modal = null; partySig = ""; } }
+    else if (a === "speed") G.speed = G.speed === 1 ? 2 : G.speed === 2 ? 4 : 1;
+    else if (a === "park") G.park = !G.park;
     else if (a === "sp") { const [k, n] = arg.split(",").map(Number); spend(G.heroes[modal.hero], k, n); liveSheet(); redraw = false; }
     else if (a === "autoonce") { autoSpend(G.heroes[modal.hero]); liveSheet(); redraw = false; }
     else if (a === "auto") { const h = G.heroes[modal.hero]; h.auto = el.checked; if (h.auto) autoSpend(h); liveSheet(); redraw = false; }
@@ -858,7 +1037,7 @@ if (typeof document !== "undefined") {
       if (!confirmReset) confirmReset = true;
       else { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} if (cloud) cloud.set({ json: "", at: Date.now(), best: 0 }).catch(() => {}); G = null; modal = null; setup = null; confirmReset = false; }
     }
-    if (redraw) { render(); if (modal && (a === "reset")) $("modal").scrollTop = keep; }
+    if (redraw) { render(); if (modal && (a === "reset" || a === "perk" || a === "chase")) $("modal").scrollTop = keep; }
     else drawHud();
     saveLocal();
   }
@@ -883,7 +1062,7 @@ if (typeof document !== "undefined") {
       if (gap > 90 && !(modal && modal.hero != null)) { modal = { away: r }; render(); }
       saveLocal();
     } else if (gap > 0) {
-      acc += gap; G.at = real;
+      acc += gap * (G.speed || 1); G.at = real;
       while (acc >= DT) { tick(); acc -= DT; }
     }
     drawScene(now, dtv);
