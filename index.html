@@ -537,6 +537,7 @@ function die(h) {
   const slot = G.party.indexOf(h.id); if (slot >= 0) G.party[slot] = null;
   G.order.unshift(nd.id);
   say(d.name + " the " + CLS[d.cls].n + " has died. They are reincarnated as " + nd.name + " the " + CLS[nd.cls].n + ". Let's hope they have a theft-free reincarnation.", "death");
+  if (G.grave.length === 1) say("A hero knocked out first in a lost fight can die for good. They return as somebody new with extra build points, and will be the next hero you find.", "");
   fx({ k: "death", t: d.name + " → " + nd.name });
   if (!Object.keys(G.heroes).length) findNext();
   fillSlots();
@@ -568,6 +569,7 @@ function wipe() {
   G.stage = Math.max(1, s - 2); G.hold = Math.min(20, 2 + G.fails * 2); G.killed = 0; G.buffs = {}; G.clock = 0;
   const last = G.log[G.log.length - 1], text = "The party is flattened at stage " + s + " and falls back to train.";
   if (last && last.k === "bad") { last.t = text; last.s = G.stage; } else say(text, "bad");
+  if (G.n.wipes === 1) say("Flattened means everyone was knocked out at once. Nothing is lost. They will train on easier stages and try again. See How to play for more.", "");
   fx({ k: "wipe" });
   if (victim && Math.random() < deathChance()) die(victim);
   for (const h of party()) { h.ko = false; h.hp = stats(h).hp; h.t = 1; }
@@ -850,7 +852,7 @@ if (typeof document !== "undefined") {
     const s = G.stage, need = stageNeed(s);
     let pips = "";
     for (let i = 0; i < need; i++) pips += '<i class="' + (i < G.killed ? "on" : "") + '"></i>';
-    $("stage").innerHTML = "<b>Stage " + s + (isBoss(s) ? ", boss" : "") + '</b><span class="zone">' + esc(zoneName(zoneOf(s))) + (G.park ? ", holding here" : G.hold > 0 ? ", training before another try" : "") + '</span><span class="pips" aria-label="' + G.killed + " of " + need + ' foes beaten">' + pips + "</span><span>Best " + G.best + (G.record > G.best ? ", record " + G.record : "") + "</span>";
+    $("stage").innerHTML = "<b>Stage " + s + (isBoss(s) ? ", boss" : "") + '</b><span class="zone">' + esc(zoneName(zoneOf(s))) + (G.park ? ", holding here" : G.hold > 0 ? ", training for " + G.hold + " more clear" + (G.hold === 1 ? "" : "s") + " before another try" : "") + '</span><span class="pips" aria-label="' + G.killed + " of " + need + ' foes beaten">' + pips + "</span><span>Best " + G.best + (G.record > G.best ? ", record " + G.record : "") + "</span>";
     const sig = G.party.join(",") + "|" + G.slots + "|" + Object.keys(G.heroes).join(",");
     if (sig !== partySig) {
       partySig = sig;
@@ -882,7 +884,7 @@ if (typeof document !== "undefined") {
         '<button type="button" data-act="roster">Heroes ' + Object.keys(G.heroes).length + " of " + total() + "</button>" +
         '<button type="button" data-act="camp"' + (G.grudge ? ' class="hot"' : "") + ">Grudge" + (G.grudge ? " " + G.grudge : "") + "</button>" +
         (spare ? '<button type="button" data-act="spendall">Spend all ' + spare + " hero points for me</button>" : "") +
-        '<button type="button" data-act="tale">The story so far</button>';
+        '<button type="button" data-act="tale">The story so far</button><button type="button" data-act="guide">How to play</button>';
     }
     const ls = G.log.length + "|" + (G.log.length ? G.log[G.log.length - 1].t : "");
     if (ls !== logSig) { logSig = ls; $("log").innerHTML = G.log.slice().reverse().map(l => '<div class="' + l.k + '"><small>Stage ' + l.s + "</small>" + esc(l.t) + "</div>").join(""); }
@@ -963,6 +965,39 @@ if (typeof document !== "undefined") {
       '<p><button type="button" data-act="chase"' + (gain ? "" : " disabled") + ">" + (confirmChase ? "Really start again for " + gain + " Grudge?" : "Start a new chase") + "</button></p>" +
       "<h3>Milestones, " + done + " of " + MILES.length + '</h3><ul class="rows">' + (miles || "<li>All done. Somehow.</li>") + "</ul>";
   }
+  function guideHtml(first) {
+    const kinds = Object.keys(KIND).map(k => "<li><span class=\"nm\"><b>" + EC.filter(c => c[1] === k).map(c => c[0]).join(", ") + "</b><small>" + KIND[k].note + "</small></span></li>").join("");
+    const bosses = BOSSK.map(b => "<li><span class=\"nm\"><b>" + b[0] + "</b><small>" + b[1] + "</small></span></li>").join("");
+    const attrs = ATTR.map(a => "<li><span class=\"nm\"><b>" + a[0] + "</b><small>" + a[1] + "</small></span></li>").join("");
+    const term = (t, d) => "<li><span class=\"nm\"><b>" + t + "</b><small>" + d + "</small></span></li>";
+    return head(first ? "Before you go" : "How to play", "Everything here can be read again from the How to play button.") +
+      '<div class="panels"><div><b>The short version</b>Your party fights on its own, even while the page is closed. You cannot lose progress by leaving it alone. Heroes level up by themselves and earn points. Tap a hero and spend the points. That is your whole job. Come back now and then to spend points, spend Grudge and see who has joined.</div></div>' +
+      (first ? '<p><button type="button" class="go" data-act="close">Got it</button></p>' : "") +
+      "<h3>Reading the screen</h3><ul class=\"rows\">" +
+      term("Stage and dots", "A stage is 6 foes. Each dot is one of them and turns red when it is beaten. Every tenth stage is a single boss. Clear the stage and the party moves to the next one.") +
+      term("Best and record", "Best is the furthest stage cleared on this chase. Record is the furthest you have ever cleared.") +
+      term("The picture", "Your heroes are on the left and the foes on the right. The top right corner names the foe being attacked, its health and its trick.") +
+      term("Numbers in the picture", "White is damage you deal. Yellow is a critical hit, worth double. Red is damage a hero takes. A green plus is healing. A star is a piece of gear being picked up. A yellow ✱ over a foe means it is stunned and cannot attack.") +
+      term("Hero cards", "The green bar is health and turns red when low. The purple bar is experience toward the next level. A yellow badge is points waiting to be spent. Tap a card to open that hero.") +
+      "</ul><h3>Words the game uses</h3><ul class=\"rows\">" +
+      term("Knocked out", "A hero at zero health lies down and stops fighting. They get up, fully healed, when the stage is cleared or the party is flattened.") +
+      term("Flattened", "Every hero in the party is knocked out at once. Nothing is taken away. The party drops back 2 stages, gets up fully healed and trains.") +
+      term("Training", "After being flattened the party clears easier stages a few times before trying the hard one again. The stage panel counts the clears left. Each time it fails at the same point it trains longer, up to 20 clears.") +
+      term("Enraged", "If a stage drags on past " + RAGE + " seconds (" + Math.round(RAGE * 1.5) + " for a boss) the foes hit harder every second until somebody loses. It stops fights that would never end.") +
+      term("Pushing on and Holding", "Pushing on means the party moves to the next stage after each clear. Press the button to hold instead: the party repeats the stage it is on, which is a safe way to gather experience and gear.") +
+      term("Stage clear", "Beating all the foes on a stage, whether it is a new stage or one you are repeating. Finding heroes is counted in stage clears.") +
+      "</ul><h3>Hero points</h3><p>Every hero is built from " + BUILD + " points and earns " + PER_LVL + " more each level. Open a hero and press +1 or +10 beside an attribute.</p><ul class=\"rows\">" + attrs + "</ul>" +
+      '<p class="muted">Spend them for me spreads the points in the same proportions as that hero\'s starting build. Tick the box under it and that hero\'s points are spent as soon as they arrive. Spend all hero points for me, on the main screen, does it for everyone at once.</p>' +
+      "<h3>Levels, skills and gear</h3><p>These all happen without you. Heroes in the party share experience from every foe. Each class has three skills, learned at levels " + SKILL_AT.join(", ") + " and used automatically. Foes sometimes drop a weapon, armour or a trinket for one hero. If it is better than what they have, they put it on. Gear comes in five grades: " + RAR.join(", ") + ". The number after the name is the stage it was found on, and higher is stronger.</p>" +
+      "<h3>Finding heroes and filling the party</h3><p>You start alone. Party slots open when you first clear stages " + SLOT_AT.slice(1).join(", ") + ". A new hero turns up after a number of stage clears that grows as your collection does, and the Heroes window says how many are left to go. New heroes fill empty slots by themselves. To change who is in the party, open a hero and choose Swap for another hero. Heroes on the bench do not gain experience, but anyone you bring in is trained up close to the party's level and handed basic gear.</p>" +
+      "<h3>Death and reincarnation</h3><p>Being flattened is normally harmless. Once you have cleared stage 10, though, the hero who was knocked out first in a lost fight has a " + Math.round(Math.max(0.02, 0.07 - 0.01 * perk("soft")) * 100) + "% chance of dying for good. They come back as somebody new, with a new name, a new class and 2 extra build points for each life they have lived. A new place opens in the collection for them, and they are the next hero you find. They do not keep their level or gear, but they are trained up and equipped when they join, like anyone else.</p>" +
+      "<h3>Grudge</h3><p>Grudge is a second kind of point, for the whole party instead of one hero. You earn it from milestones and from starting a new chase. Spend it in the Grudge window on permanent upgrades. The button turns yellow when you have some.</p>" +
+      "<h3>Starting a new chase</h3><p>When progress slows to a crawl, you can give up the trail. Once you have cleared stage 20 on the current chase, the Grudge window offers to start again from stage 1 in exchange for Grudge, and the further you got the more it pays. You lose your stage, hero levels, spent hero points and gear. You keep every hero, your party slots, your Grudge upgrades and your milestones. With the upgrades you buy, the next chase goes further.</p>" +
+      "<h3>Speed and time away</h3><p>The Speed button switches between 1×, 2× and 4× while the page is open. When the page is closed or hidden the party carries on at 1× for up to " + Math.round(offlineCap() / 3600) + " hours, and you get a summary when you return. The Night Shift upgrade makes that longer.</p>" +
+      "<h3>Foes</h3><ul class=\"rows\">" + kinds + "</ul><h3>Bosses</h3><ul class=\"rows\">" + bosses + "</ul>" +
+      '<p class="muted">Foes get tougher every stage and also when your party has more heroes in it.</p>' +
+      "<h3>Saving</h3><p>The game saves by itself every few seconds in this browser. To wipe everything and get a different theft, open The story so far and choose Start over.</p>";
+  }
   function taleHtml() {
     const p = storyParts(G.story), hrs = G.n.secs / 3600;
     return head(esc(p.v.n) + " still has " + esc(p.th.it) + ".") + p.panels +
@@ -991,6 +1026,7 @@ if (typeof document !== "undefined") {
     if (modal.hero != null) { sheetSig = ""; show(sheetHtml(modal.hero)); liveSheet(); }
     else if (modal.roster) show(rosterHtml(modal.slot));
     else if (modal.tale) show(taleHtml());
+    else if (modal.guide) show(guideHtml(modal.first));
     else if (modal.camp) show(campHtml());
     else if (modal.away) show(awayHtml(modal.away));
   }
@@ -1010,10 +1046,10 @@ if (typeof document !== "undefined") {
       else if (a === "bplus") { if (setup.build.reduce((x, y) => x + y, 0) < BUILD) setup.build[+arg]++; }
       else if (a === "bminus") { if (setup.build[+arg] > 0) setup.build[+arg]--; }
       else if (a === "bsuggest") setup.build = suggest(setup.cls);
-      else if (a === "begin") { newGame({ name: setup.name.trim(), cls: setup.cls, build: setup.build, story: setup.story }); freshStart = true; loadedAt = G.at; modal = null; setup = null; partySig = logSig = ""; saveLocal(); }
+      else if (a === "begin") { newGame({ name: setup.name.trim(), cls: setup.cls, build: setup.build, story: setup.story }); freshStart = true; loadedAt = G.at; modal = { guide: 1, first: 1 }; setup = null; partySig = logSig = ""; saveLocal(); }
       const top = $("modal").scrollTop;
       render();
-      $("modal").scrollTop = a === "tobuild" ? 0 : top;
+      $("modal").scrollTop = a === "tobuild" || a === "begin" ? 0 : top;
       return;
     }
     const keep = $("modal").scrollTop;
@@ -1022,6 +1058,7 @@ if (typeof document !== "undefined") {
     else if (a === "hero") modal = { hero: +arg };
     else if (a === "roster") modal = { roster: 1, slot: arg == null ? null : +arg };
     else if (a === "tale") modal = { tale: 1 };
+    else if (a === "guide") modal = { guide: 1 };
     else if (a === "camp") { modal = { camp: 1 }; confirmChase = false; }
     else if (a === "perk") buyPerk(arg);
     else if (a === "chase") { if (!confirmChase) confirmChase = true; else { newChase(); confirmChase = false; modal = null; partySig = ""; } }

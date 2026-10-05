@@ -58,6 +58,21 @@ time you were away, up to 8 hours, and tells you what happened.
 - **Skills.** Each class has three, learned at levels 1, 10 and 30 and used
   automatically.
 
+## Words the game uses
+
+The game has a How to play button that explains all of this in full.
+
+- **Knocked out**: a hero at zero health lies down until the stage is cleared
+  or the party is flattened, then gets up fully healed.
+- **Flattened**: every hero is knocked out at once. Nothing is taken away. The
+  party drops back 2 stages and trains.
+- **Training**: clearing easier stages a few times before trying the hard one
+  again. The stage panel counts the clears left.
+- **Enraged**: if a stage drags on past 45 seconds, foes hit harder every
+  second until somebody loses.
+- **Holding**: repeating the current stage instead of moving on.
+- **Stage clear**: beating all the foes on a stage, new or repeated.
+
 ## Files
 
 - `index.html`: the whole game: markup, styles, data and script
