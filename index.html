@@ -1,0 +1,903 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Give It Back</title>
+<link rel="icon" type="image/svg+xml" href="logo.svg">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Baloo+2:wght@600;800&display=swap" rel="stylesheet">
+<style>
+:root{
+  --page:#d6ecfb;
+  --panel:#ffffff;
+  --ink:#1b2440;
+  --muted:#55608a;
+  --line:#1b2440;
+  --accent:#ffcc33;
+  --on-accent:#1b2440;
+  --bad:#e5483c;
+  --good:#2f9e55;
+  --xp:#6a5acd;
+  --well:#e4ebf5;
+  --display:"Baloo 2","Trebuchet MS",system-ui,sans-serif;
+  box-sizing:border-box;
+  padding-top:env(safe-area-inset-top,0px);
+  padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){
+  :root:not([data-theme="light"]){
+    --page:#121935;
+    --panel:#202b58;
+    --ink:#f4f1e4;
+    --muted:#a9b3d9;
+    --line:#060a1c;
+    --accent:#ffcc33;
+    --on-accent:#1b2440;
+    --bad:#ff6b5e;
+    --good:#58c97c;
+    --xp:#9b8cff;
+    --well:#141c40;
+  }
+}
+:root[data-theme="dark"]{
+  --page:#121935;
+  --panel:#202b58;
+  --ink:#f4f1e4;
+  --muted:#a9b3d9;
+  --line:#060a1c;
+  --accent:#ffcc33;
+  --on-accent:#1b2440;
+  --bad:#ff6b5e;
+  --good:#58c97c;
+  --xp:#9b8cff;
+  --well:#141c40;
+}
+*,*::before,*::after{box-sizing:inherit;}
+html{scroll-padding-top:env(safe-area-inset-top,0px);}
+body{margin:0;background:var(--page);color:var(--ink);font-family:system-ui,-apple-system,"Segoe UI",sans-serif;line-height:1.4;}
+main{max-width:760px;margin:0 auto;padding:12px 12px 32px;}
+h1,h2,h3,button,.stage b{font-family:var(--display);}
+h1{font-weight:800;font-size:clamp(2rem,9vw,3.2rem);line-height:.95;margin:0;letter-spacing:-.01em;}
+h1 span{display:inline-block;background:var(--accent);color:var(--on-accent);border:3px solid var(--line);border-radius:10px;padding:2px 12px 0;transform:rotate(-2deg);box-shadow:4px 4px 0 var(--line);}
+h2{font-size:1.5rem;line-height:1.1;margin:0 0 8px;font-weight:800;}
+h3{font-size:1.05rem;margin:16px 0 4px;font-weight:800;}
+p{margin:0 0 10px;}
+.theft{margin:14px 0 10px;font-size:.95rem;}
+.theft b{color:var(--bad);}
+button,input[type=text]{font:inherit;color:var(--ink);background:var(--panel);border:2.5px solid var(--line);border-radius:10px;padding:7px 12px;}
+button{cursor:pointer;font-weight:600;font-family:var(--display);font-size:1rem;line-height:1.15;box-shadow:2px 2px 0 var(--line);}
+button:active:not(:disabled){transform:translate(2px,2px);box-shadow:none;}
+button:disabled{opacity:.4;cursor:default;}
+button.go{background:var(--accent);color:var(--on-accent);font-weight:800;font-size:1.15rem;padding:9px 18px;}
+button:focus-visible,input:focus-visible{outline:3px solid var(--xp);outline-offset:2px;}
+.panel{background:var(--panel);border:2.5px solid var(--line);border-radius:12px;box-shadow:4px 4px 0 var(--line);}
+
+.stage{display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 14px;padding:8px 12px;margin-bottom:8px;}
+.stage b{font-size:1.25rem;font-weight:800;}
+.stage .zone{flex:1 1 auto;color:var(--muted);}
+.stage .pips{display:flex;gap:4px;align-items:center;}
+.stage .pips i{width:12px;height:12px;border:2px solid var(--line);border-radius:50%;background:var(--well);}
+.stage .pips i.on{background:var(--bad);}
+#scene{display:block;width:100%;height:210px;border:2.5px solid var(--line);border-radius:12px;box-shadow:4px 4px 0 var(--line);image-rendering:pixelated;background:#9fd3f5;}
+@media (max-width:520px){#scene{height:180px;}}
+
+.party{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin:12px 0;}
+@media (max-width:520px){.party{grid-template-columns:1fr 1fr;}}
+.card{position:relative;display:grid;grid-template-columns:auto 1fr;gap:2px 8px;align-items:center;text-align:left;padding:14px 8px 7px;font-family:inherit;font-weight:400;font-size:.82rem;min-height:72px;}
+.card canvas{grid-row:1/3;width:40px;height:40px;image-rendering:pixelated;}
+.card .nm{font-family:var(--display);font-weight:800;font-size:.95rem;line-height:1.05;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.card .sub{color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.card .bars{grid-column:1/-1;display:grid;gap:3px;}
+.card.empty{display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);border-style:dashed;box-shadow:none;}
+.card.ko canvas{filter:grayscale(1);opacity:.5;}
+.pts{position:absolute;top:-11px;right:-6px;background:var(--accent);color:var(--on-accent);border:2.5px solid var(--line);border-radius:999px;font-family:var(--display);font-weight:800;font-size:.8rem;padding:0 7px;line-height:1.5;}
+.bar{height:9px;border:2px solid var(--line);border-radius:6px;background:var(--well);overflow:hidden;}
+.bar i{display:block;height:100%;background:var(--good);}
+.bar.x{height:6px;border-width:1.5px;}
+.bar.x i{background:var(--xp);}
+.bar.low i{background:var(--bad);}
+
+.tools{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:12px;}
+#log{padding:10px 12px;font-size:.9rem;max-height:230px;overflow-y:auto;}
+#log div{padding:3px 0;border-bottom:1px dashed var(--well);}
+#log div:last-child{border-bottom:0;}
+#log .story{font-weight:600;}
+#log .bad{color:var(--bad);}
+#log .good{color:var(--good);}
+#log .join{color:var(--xp);font-weight:600;}
+#log small{color:var(--muted);margin-right:6px;}
+
+#modal{position:fixed;inset:0;z-index:5;display:flex;align-items:flex-start;justify-content:center;padding:calc(12px + env(safe-area-inset-top,0px)) 10px 12px;background:rgba(10,14,34,.66);overflow-y:auto;}
+#modal[hidden]{display:none;}
+.sheet{padding:16px;width:100%;max-width:600px;}
+.sheet .head{display:flex;justify-content:space-between;align-items:flex-start;gap:10px;margin-bottom:6px;}
+.sheet .head canvas{width:56px;height:56px;image-rendering:pixelated;flex:none;}
+.sheet .head div{flex:1;min-width:0;}
+.rows{list-style:none;margin:0;padding:0;}
+.rows li{display:flex;gap:8px;align-items:center;padding:6px 0;border-bottom:1.5px dashed var(--well);font-size:.92rem;}
+.rows li:last-child{border-bottom:0;}
+.rows .nm{flex:1;min-width:0;}
+.rows small{display:block;color:var(--muted);}
+.rows button{padding:3px 10px;font-size:.9rem;white-space:nowrap;}
+.rows .val{font-family:var(--display);font-weight:800;font-size:1.2rem;min-width:2.2em;text-align:right;}
+.rows li.locked{opacity:.5;}
+.rows canvas{width:32px;height:32px;image-rendering:pixelated;flex:none;}
+.budget{display:inline-block;background:var(--accent);color:var(--on-accent);border:2.5px solid var(--line);border-radius:999px;font-family:var(--display);font-weight:800;padding:1px 12px;}
+.muted{color:var(--muted);font-size:.9rem;}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;font-size:.9rem;}
+.grid2 div{display:flex;justify-content:space-between;gap:8px;}
+.picks{display:grid;grid-template-columns:repeat(2,1fr);gap:8px;margin:8px 0 12px;}
+@media (min-width:560px){.picks{grid-template-columns:repeat(3,1fr);}}
+.picks button{text-align:left;font-family:inherit;font-weight:400;font-size:.8rem;}
+.picks button b{display:block;font-family:var(--display);font-size:1rem;}
+.picks button.on{background:var(--accent);color:var(--on-accent);}
+.panels{display:grid;gap:10px;margin:12px 0 16px;}
+.panels div{background:var(--well);border:2.5px solid var(--line);border-radius:10px;padding:8px 12px;}
+.panels div:nth-child(2){transform:rotate(.6deg);}
+.panels div:nth-child(3){transform:rotate(-.5deg);}
+.panels b{font-family:var(--display);font-weight:800;display:block;}
+label.chk{display:flex;gap:8px;align-items:center;font-size:.92rem;margin:6px 0;}
+label.chk input{width:20px;height:20px;accent-color:var(--xp);}
+.lvl{font-family:var(--display);font-weight:800;}
+</style>
+</head>
+<body>
+<main>
+  <h1><span>Give It Back</span></h1>
+  <p class="theft" id="theft">An endless quest over something small.</p>
+  <div id="game" hidden>
+    <div class="stage panel" id="stage"></div>
+    <canvas id="scene" aria-label="The party fighting"></canvas>
+    <div class="party" id="party"></div>
+    <div class="tools" id="tools"></div>
+    <div class="panel" id="log" aria-live="off"></div>
+  </div>
+  <div id="modal" hidden></div>
+</main>
+<script>
+"use strict";
+// ================= Helpers =================
+const rnd = n => Math.floor(Math.random() * n);
+const pick = a => a[rnd(a.length)];
+const clamp = (v, a, b) => v < a ? a : v > b ? b : v;
+function hashStr(s) { let h = 2166136261; for (let i = 0; i < s.length; i++) h = Math.imul(h ^ s.charCodeAt(i), 16777619); return h >>> 0; }
+function mulberry(a) { return () => { a = a + 0x6D2B79F5 | 0; let t = Math.imul(a ^ a >>> 15, 1 | a); t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t; return ((t ^ t >>> 14) >>> 0) / 4294967296; }; }
+const SUF = ["", "K", "M", "B", "T", "Qa", "Qi", "Sx", "Sp", "Oc", "No", "Dc"];
+function fmt(n) {
+  if (!isFinite(n)) return "lots";
+  if (n < 1000) return "" + Math.round(n);
+  const e = Math.floor(Math.log10(n) / 3);
+  if (e >= SUF.length) return n.toExponential(2).replace("+", "");
+  const v = n / Math.pow(1000, e);
+  return (v >= 100 ? v.toFixed(0) : v >= 10 ? v.toFixed(1) : v.toFixed(2)) + SUF[e];
+}
+
+// ================= Rules =================
+// Every hero, yours and the hundred premade ones, is built from the same 20 points
+// across these six attributes, and earns 2 more per level.
+const ATTR = [["Might", "Hits harder."], ["Vigor", "More health."], ["Guard", "Takes less damage."], ["Haste", "Attacks more often."], ["Luck", "More critical hits and better finds."], ["Wits", "Stronger skills, used more often."]];
+const BUILD = 20, PER_LVL = 2, DT = 0.25, MAXSLOTS = 6, OFFLINE_CAP = 8 * 3600;
+const GE = 1.14, GX = 1.13, RAGE = 45;
+const SLOT_AT = [1, 3, 10, 25, 50, 100];
+const SKILL_AT = [1, 10, 30];
+// Skill types: strike (one foe), cleave (all foes), dot (damage over 6 seconds), heal (weakest ally),
+// healall, buff (whole party: guard, haste, might or luck), stunall.
+const CLS = [
+  { n: "Knight", col: "#8d99ae", w: [2, 5, 6, 1, 1, 1], tank: 4, d: "Stands at the front and gets hit so others don't.", sk: [["Shield Bash", 7, "strike", { m: 2, stun: 2 }, "A heavy blow that stuns."], ["Hold the Line", 18, "buff", { k: "guard", v: 0.35, d: 8 }, "The whole party takes 35% less damage for 8 seconds."], ["Unbudgeable", 22, "heal", { f: 0.4, self: 1 }, "Heals themselves for 40% of their health."]] },
+  { n: "Berserker", col: "#d1493f", w: [6, 3, 1, 3, 2, 1], tank: 1.5, d: "Hits things. Then hits them again.", sk: [["Big Swing", 6, "strike", { m: 3 }, "One enormous hit."], ["Whirl", 11, "cleave", { m: 1.6 }, "Hits every foe."], ["Tantrum", 24, "buff", { k: "might", v: 0.4, d: 8 }, "The whole party hits 40% harder for 8 seconds."]] },
+  { n: "Ranger", col: "#4f9d58", w: [4, 2, 1, 5, 3, 1], tank: 0.7, d: "Fast, accurate and standing well back.", sk: [["Aimed Shot", 6, "strike", { m: 2.6, crit: 1 }, "A shot that always lands a critical hit."], ["Volley", 12, "cleave", { m: 1.4 }, "Arrows for everybody."], ["Trained Squirrel", 15, "dot", { m: 4 }, "A squirrel harasses one foe for 6 seconds."]] },
+  { n: "Mage", col: "#6a5acd", w: [3, 2, 1, 2, 2, 6], tank: 0.6, d: "Fragile. Explodes things from a distance.", sk: [["Fireball", 8, "cleave", { m: 1.8 }, "Burns every foe."], ["Zap", 6, "strike", { m: 3.2 }, "A sharp bolt at one foe."], ["Regrettable Explosion", 26, "cleave", { m: 4.5 }, "A very large blast. Nobody is sure whose fault it was."]] },
+  { n: "Cleric", col: "#e8dfc4", w: [1, 4, 3, 2, 1, 5], tank: 1, d: "Keeps everyone on their feet.", sk: [["Mend", 6, "heal", { f: 0.35 }, "Heals the weakest ally for 35%."], ["Group Hug", 16, "healall", { f: 0.22 }, "Heals the whole party for 22%."], ["Stern Sermon", 22, "stunall", { d: 2.5 }, "Every foe stops to feel bad for 2.5 seconds."]] },
+  { n: "Rogue", col: "#55506a", w: [4, 2, 1, 4, 5, 1], tank: 0.7, d: "Critical hits and questionable ethics.", sk: [["Backstab", 6, "strike", { m: 3.4 }, "A nasty hit from behind."], ["Poisoned Snack", 13, "dot", { m: 5 }, "One foe regrets eating it for 6 seconds."], ["Pocket Sand", 20, "stunall", { d: 2 }, "Stuns every foe for 2 seconds."]] },
+  { n: "Bard", col: "#e58fb1", w: [2, 3, 2, 3, 3, 5], tank: 0.8, d: "Makes everyone else better. Will not stop singing.", sk: [["Catchy Tune", 16, "buff", { k: "haste", v: 0.35, d: 8 }, "The whole party attacks 35% faster for 8 seconds."], ["Power Ballad", 20, "buff", { k: "might", v: 0.3, d: 8 }, "The whole party hits 30% harder for 8 seconds."], ["Encore", 24, "healall", { f: 0.18 }, "Heals the whole party for 18%."]] },
+  { n: "Druid", col: "#7a9a3a", w: [3, 4, 2, 2, 2, 5], tank: 1.2, d: "Heals with moss. Attacks with bees.", sk: [["Regrowth", 7, "heal", { f: 0.3 }, "Heals the weakest ally for 30%."], ["Angry Bees", 14, "dot", { m: 3, all: 1 }, "Bees on every foe for 6 seconds."], ["Bear Hug", 12, "strike", { m: 2.6, heal: 0.15 }, "A crushing hug that also heals the druid."]] },
+  { n: "Monk", col: "#e0943a", w: [3, 3, 3, 5, 2, 2], tank: 1.5, d: "Very calm. Very fast.", sk: [["Flurry", 7, "strike", { m: 3 }, "Several quick hits at once."], ["Calm Tea", 20, "healall", { f: 0.15 }, "Heals the whole party for 15%."], ["Pressure Point", 14, "strike", { m: 2.2, stun: 3 }, "A precise poke that stuns for 3 seconds."]] },
+  { n: "Tinkerer", col: "#3fa7a0", w: [3, 3, 2, 2, 6, 2], tank: 0.9, d: "Finds better loot. Carries too many wrenches.", sk: [["Wrench Toss", 6, "strike", { m: 2.6 }, "A wrench, thrown hard."], ["Lucky Find", 25, "buff", { k: "luck", v: 1, d: 12 }, "Twice the finds for 12 seconds."], ["Unstable Gizmo", 16, "cleave", { m: 2.4 }, "It was meant to do something else."]] }
+];
+const NAMES = [
+  "Brunhilde the Unbudgeable", "Sir Clanks-a-Lot", "Dame Agatha Doorstop", "Gregor Shieldface", "Lady Portcullis", "Sir Loin of Beef", "Mabel Ironbottom", "Big Dennis", "Wilhelmina Wall", "Sir Reginald Sturdy",
+  "Olga the Loud", "Thrag Tablesmash", "Angry Kevin", "Hilda Headbutt", "Rollo Redface", "Bjorn Too-Many-Axes", "Furious Deb", "Gunnar Oops", "Ragna Doorkicker", "Tiny Ulf",
+  "Fennel Quickarrow", "Pip Longshot", "Wren of the Hedge", "Old Squint", "Juniper Twig", "Dash Featherby", "Marnie Missed-Once", "Thistle Farsight", "Bo Stringer", "Hazel Trailmix",
+  "Zibbert the Adequate", "Mystic Pam", "Orlo Sparkfinger", "Wanda Whoops", "Professor Singe", "Elderberry Fizz", "Nigel the Unlicensed", "Tabitha Boom", "Merv the Mostly Wise", "Ignatia Smoulder",
+  "Sister Poultice", "Brother Bandage", "Father Lozenge", "Prudence Kindly", "Deacon Splint", "Mother Hubbub", "Saint Kevin (Pending)", "Abbess Ointment", "Chaplain Tuck-In", "Nurse Hildy",
+  "Sly Maureen", "Fingers McGee", "Vex Lightpocket", "The Shadow (Greg)", "Nimble Nora", "Quiet Pete", "Sneaky Beatrix", "Jack Halfalibi", "Mittens", "Dagger Doug",
+  "Melody Offkey", "Barnaby Strum", "Fiona Fortissimo", "Jingles", "Crooning Clive", "Viola Dramatic", "Two-Chord Tom", "Harmony Loud", "Reed Kazoo", "Dolores Encore",
+  "Mossy Margaret", "Bramble Ted", "Acorn Annie", "Fern Mudfoot", "Badger Bill", "Willow Whisperwind", "Compost Carl", "Daisy Thornbush", "Old Man Lichen", "Petal the Fierce",
+  "Calm Brenda", "Brother Flurry", "Serene Dave", "Master Oolong", "Still Water Phil", "Sister Knuckles", "Humble Hank", "Zen Wendy", "Barefoot Raj", "Patient Mei",
+  "Cogs Whitby", "Sprocket Sue", "Doc Widget", "Greasy Lin", "Bolt Bannister", "Fizz Gearhart", "Wrench Wendell", "Tilly Tinplate", "Gadget Gus", "Professor Springs"
+];
+// What the villain took from each premade hero. It is how they end up on your side.
+const ALSO = ["their good scissors", "a signed turnip", "half a library book", "their favourite ladle", "a jar of buttons", "their second-best hat", "a very comfortable chair", "the family soup recipe", "one (1) glove", "their whistle", "a nearly finished jigsaw", "their lunch", "a decorative gourd", "the only key to their shed", "their grandmother's teapot", "a prize-winning marrow", "their reading glasses", "a ball of string they were proud of", "the good blanket", "their name tag", "a painting of a horse", "their lucky pebble", "an heirloom spatula", "their umbrella, during rain", "a medal for third place"];
+
+const HERO = NAMES.map((name, id) => {
+  const cls = Math.floor(id / 10), r = mulberry(hashStr("hero" + id)), w = CLS[cls].w.map(v => v * (0.7 + r() * 0.6)), build = [0, 0, 0, 0, 0, 0];
+  for (let i = 0; i < BUILD; i++) { const ok = w.map((v, k) => build[k] < 8 ? v : 0), tot = ok.reduce((a, b) => a + b, 0); let x = r() * tot, k = 0; while (k < 5 && (x -= ok[k]) > 0) k++; build[k]++; }
+  return { id, name, cls, build, lost: ALSO[Math.floor(r() * ALSO.length)], skin: ["#e8b88a", "#cf9468", "#f0dcc0", "#a8744c", "#ecc49c", "#8c5a3c"][Math.floor(r() * 6)], hair: ["#5a3a1e", "#b5522a", "#e8d27a", "#26262c", "#c9c9d1", "#7a4a22", "#d98ac0"][Math.floor(r() * 7)] };
+});
+
+// ================= The story =================
+const THINGS = [
+  { it: "your left sock", what: "A grey wool sock with a hole at the big toe. The lucky one.", why: "You were wearing it the only time you ever won at cards. You have not won since, but you have not been wearing it either, so the theory holds." },
+  { it: "your pet rock, Gerald", what: "A smooth grey rock with two glued-on eyes, one slightly higher than the other.", why: "Gerald has listened to every problem you have ever had and never once interrupted. That is more than you can say for anyone else you know." },
+  { it: "your mug", what: "A chipped mug that says WORLD'S OKAYEST HERO.", why: "Tea does not taste right out of anything else. You have tried eleven other mugs. You kept notes." },
+  { it: "your sandwich", what: "Half a cheese and pickle sandwich, wrapped in a napkin. You were saving it.", why: "It was the last one your nan made before she moved to the seaside. She is fine. She just doesn't make sandwiches any more." },
+  { it: "your favourite stick", what: "A stick. About so long. It has a good bit at the end.", why: "You found it when you were six and nobody has ever found a better one. People have tried. You have seen their sticks." },
+  { it: "your rubber duck, Admiral Quack", what: "A yellow rubber duck in a tiny paper admiral's hat.", why: "The Admiral has commanded every bath since you were small. Without him the bath is just hot water you sit in and think." },
+  { it: "your good pillow", what: "A flat, lumpy pillow that is exactly the right kind of flat and lumpy.", why: "It took nine years to get it like that. You cannot do another nine years. You have a neck." },
+  { it: "your doormat", what: "A bristly brown doormat that says GO AWAY.", why: "It was the only thing in your life that said what you were thinking. Now people just come in." },
+  { it: "the last page of your book", what: "Page 412 of 'The Mystery at Marrow Hall', torn out neatly.", why: "You have read the first 411 pages four times. You are fairly sure it was the gardener. You need to be completely sure." },
+  { it: "your potato", what: "A potato that looks exactly like your father.", why: "He never said he was proud of you, and neither has the potato, but with the potato it feels less personal." },
+  { it: "your hat", what: "A wide, floppy hat with a feather that has seen better days.", why: "Without it people keep saying 'Oh, I didn't recognise you.' It turns out the hat was doing most of the work." },
+  { it: "your jar of pickles", what: "A large jar of pickles with the lid still on.", why: "You had been trying to open it for three weeks and you felt it give, just slightly, the morning it was taken. You were so close." },
+  { it: "your spoon", what: "A slightly bent soup spoon with a dent in the handle.", why: "It fits your hand. Other spoons are either too deep or too shallow, and you are tired of pretending otherwise." },
+  { it: "your houseplant, Susan", what: "A small fern in a blue pot. Three fronds, one of them ambitious.", why: "Susan is the only living thing you have ever kept alive, and you were not finished proving that you could." },
+  { it: "your left boot", what: "A brown leather boot, left foot, well worn in.", why: "The right boot is fine but it is not the same. You have been walking in a slight circle for days." },
+  { it: "your kazoo", what: "A dented tin kazoo on a string.", why: "It is the only instrument you can play. You were finally getting requests. Mostly requests to stop, but still." },
+  { it: "your shed key", what: "A small brass key on a loop of string.", why: "Everything else you own is in the shed. You are not being dramatic. Everything." },
+  { it: "your snow globe", what: "A snow globe of a town you have never been to. Half the snow is stuck to the roof.", why: "You shake it when you need to make a decision. You have not made a decision since it was taken, including about lunch." }
+];
+const VILLAINS = [
+  { n: "Baron Von Snatch", how: "leaned in through your window on a very long ladder", lair: "Castle Mine-Now", clue: "ladder marks" },
+  { n: "Madame Yoink", how: "swept past in a carriage and plucked it up with a hook on a stick", lair: "the Yoinkery", clue: "carriage tracks" },
+  { n: "Lord Nabbington", how: "knocked, asked to borrow it, and ran before you had answered", lair: "Nabbington Hall", clue: "apology notes he clearly does not mean" },
+  { n: "The Duchess of Mine", how: "pointed behind you, said 'What's that?', and you looked", lair: "the Duchy of Mine", clue: "dropped monocles" },
+  { n: "Count Takeula", how: "turned into a bat, which was unnecessary, and flew off with it", lair: "Castle Takeula", clue: "bat-sized footprints" },
+  { n: "Professor Swipe", how: "replaced it with a note reading 'I.O.U. one (1) of these'", lair: "the Institute of Advanced Taking", clue: "chalk equations about you" },
+  { n: "Sir Reginald Fingers", how: "challenged you to a duel, and took it while you were looking for your gloves", lair: "Fort Fingers", clue: "discarded gloves" },
+  { n: "Grand Vizier Pinch", how: "had it legally declared his by a court that he also owns", lair: "the Palace of Pinch", clue: "legal paperwork" }
+];
+const PLANS = [
+  "Follow the {clue} to {lair}, knock down the door, and take it back. Everyone you ask says {lair} is just past the next boss.",
+  "Beat up everyone who works for {v} until one of them says where {lair} is. So far they all point further down the road.",
+  "Walk until you reach {lair}. It is on every map, always one fold over from wherever you are standing.",
+  "Chase {v} from boss to boss. The trail of {clue} is fresh, so {lair} cannot be more than ten stages away. It is never more than ten stages away."
+];
+const ESCAPES = [
+  "{v} was here a minute ago. The {boss} was only stalling. {It2} is one zone ahead, as usual.",
+  "You catch sight of {v} holding {it2} over a balcony, laughing, before a trapdoor opens under the wrong person. {v} gets away anyway.",
+  "The {boss} hands over a note: 'Sorry I missed you. {It2} says hello. Regards, {v}.'",
+  "{v} waves {it2} at you from a departing balloon. You do not have a balloon.",
+  "You were so close this time. The chair was still warm. {It2} was not on it.",
+  "The {boss} admits {v} left with {it2} through the back. There is always a back.",
+  "{v} has left a forwarding address. It is the next zone. It is always the next zone.",
+  "Somebody saw {v} using {it2} as a paperweight. You have never been so angry about paper.",
+  "A wanted poster of you is pinned to the wall. {v} has drawn {it2} in the corner, to gloat.",
+  "The {boss} says {v} will give it back if you ask nicely. You asked nicely. The {boss} was lying."
+];
+const POSTCARDS = [
+  "A postcard arrives: 'Wish you were here. {It2} is having a lovely time. — {v}'",
+  "Rumour on the road: {v} has had a tiny display case made for {it2}.",
+  "You find a flyer: 'Come see {it2}! Admission two coins.' The address is smudged.",
+  "A crow drops a letter: 'Stop following me. Also, {it2} is fine. — {v}'",
+  "A passing merchant says {v} tried to sell him {it2}, then had second thoughts and hugged it.",
+  "Carved on a tree: '{v} was here, and so was {it2}.'",
+  "You dream about {it2}. In the dream it is disappointed that you are taking this long.",
+  "Someone has seen {it2} riding in the front seat of {v}'s carriage. The front seat."
+];
+const ZA = ["Mildly Haunted", "Suspiciously Quiet", "Overly Damp", "Aggressively Scenic", "Slightly Cursed", "Unreasonably Windy", "Moderately Evil", "Recently Mopped", "Badly Signposted", "Goose-Infested", "Technically Bottomless"];
+const ZP = ["Meadow", "Swamp", "Turnip Fields", "Catacombs", "Gift Shop", "Mountain Pass", "Forest", "Village Fête", "Ruins", "Beach", "Castle Corridor", "Mushroom Cave"];
+const EA = ["Grumpy", "Damp", "Rude", "Sticky", "Overconfident", "Sleepy", "Passive-Aggressive", "Feral", "Smug", "Off-Brand", "Underpaid", "Loud"];
+const EC = [["Goblin", "h"], ["Slime", "s"], ["Rat", "r"], ["Bat", "b"], ["Skeleton", "k"], ["Spider", "i"], ["Wolf", "d"], ["Lizard", "l"], ["Ghost", "g"], ["Golem", "m"], ["Ogre", "G"], ["Eyeball", "e"], ["Goose", "b"], ["Henchman", "h"]];
+const RANKS = ["Second-Best Henchman", "Accountant", "Nephew", "Landlord", "Personal Trainer", "Decoy", "Cousin Who Needed a Job", "Dentist", "Understudy", "Lawyer", "Hat Polisher", "Biggest Fan"];
+const RAR = ["Ordinary", "Decent", "Fancy", "Heroic", "Legendary"];
+const GEAR = { w: ["Spoon", "Stick", "Baguette", "Frying Pan", "Umbrella", "Rolling Pin", "Trout", "Ladle", "Broom", "Rake", "Sock Full of Coins", "Actual Sword"], a: ["Cardigan", "Barrel", "Apron", "Raincoat", "Dressing Gown", "Chainmail Vest", "Colander Helmet", "Oven Mitts", "Quilt", "Saucepan Lid"], t: ["Lucky Button", "Pet Pebble", "Bottle Cap", "Friendship Bracelet", "Odd Marble", "Tiny Hat", "Whistle", "Four-Leaf Clover", "Mystery Key"] };
+const GSLOT = [["w", "Weapon"], ["a", "Armour"], ["t", "Trinket"]];
+
+const zoneOf = s => Math.floor((s - 1) / 10);
+const zoneName = z => "The " + ZA[(z * 5) % ZA.length] + " " + ZP[(z * 7) % ZP.length];
+const isBoss = s => s % 10 === 0;
+function tell(t, boss) {
+  const S = G.story, v = VILLAINS[S.v], it2 = THINGS[S.t].it;
+  return t.replace(/\{v\}/g, v.n).replace(/\{it2\}/g, it2).replace(/\{It2\}/g, it2[0].toUpperCase() + it2.slice(1)).replace(/\{lair\}/g, v.lair).replace(/\{clue\}/g, v.clue).replace(/\{boss\}/g, boss || "boss");
+}
+
+// ================= State =================
+let G = null, QUIET = false;
+const FX = [];
+const def = id => id === 100 ? G.me : HERO[id];
+const xpNeed = l => 25 * Math.pow(1.17, l - 1);
+function say(t, k) { G.log.push({ t, k: k || "", s: G.stage }); if (G.log.length > 60) G.log.shift(); }
+function fx(o) { if (!QUIET) { FX.push(o); if (FX.length > 50) FX.shift(); } }
+
+function gearPow(g) { return g ? (1 + 0.35 * g.r) * Math.pow(1.045, g.l) : 0; }
+function gearName(g) { return RAR[g.r] + " " + GEAR[g.s][g.n] + " +" + g.l; }
+function attrs(h) {
+  const d = def(h.id), a = d.build.map((v, i) => v + h.add[i]);
+  if (h.gear.t) a[h.gear.t.a] += h.gear.t.v;
+  return a;
+}
+function stats(h) {
+  const a = attrs(h), lm = Math.pow(1.085, h.lvl - 1), c = CLS[def(h.id).cls];
+  return {
+    a, atk: 5 * lm * (1 + 0.05 * a[0]) * (1 + 0.3 * gearPow(h.gear.w)),
+    hp: 45 * lm * (1 + 0.05 * a[1]) * (1 + 0.3 * gearPow(h.gear.a)),
+    dr: Math.min(0.8, a[2] / (a[2] + 45)),
+    iv: Math.max(0.3, 1.5 / (1 + 0.025 * a[3])),
+    crit: Math.min(0.6, 0.05 + 0.006 * a[4]), luck: a[4],
+    sp: 1 + 0.04 * a[5], cd: 1 / (1 + 0.012 * a[5]), tank: c.tank
+  };
+}
+function newHero(id, lvl) {
+  const h = { id, lvl: lvl || 1, xp: 0, pts: ((lvl || 1) - 1) * PER_LVL, add: [0, 0, 0, 0, 0, 0], auto: false, gear: {}, hp: 1, t: 1, cd: [3, 6, 9], ko: false };
+  h.hp = stats(h).hp;
+  return h;
+}
+function spend(h, k, n) {
+  n = Math.min(n, h.pts);
+  if (n <= 0) return;
+  const s0 = stats(h).hp;
+  h.pts -= n; h.add[k] += n;
+  if (k === 1 && !h.ko) h.hp += stats(h).hp - s0;
+}
+// Spend every spare point in the proportions of the hero's starting build.
+function autoSpend(h) {
+  const b = def(h.id).build, tot = b.reduce((x, y) => x + y, 0) || 1;
+  while (h.pts > 0) {
+    let best = 0, bv = -1e9;
+    const have = h.add.reduce((x, y) => x + y, 0) + 1;
+    for (let k = 0; k < 6; k++) { const want = b[k] / tot * have - h.add[k]; if (want > bv) { bv = want; best = k; } }
+    spend(h, best, 1);
+  }
+}
+const party = () => G.party.filter(id => id != null).map(id => G.heroes[id]);
+const avgLvl = () => { const p = party(); return p.length ? p.reduce((s, h) => s + h.lvl, 0) / p.length : 1; };
+function issue(h) {
+  // Anyone joining the party gets standard-issue kit so they are not hopeless.
+  const l = Math.max(1, Math.floor(G.best * 0.7));
+  for (const [s] of GSLOT) {
+    const g = { s, r: 0, l, n: rnd(GEAR[s].length) };
+    if (s === "t") { g.a = topAttr(h); g.v = trinketVal(g); }
+    if (gearPow(g) > gearPow(h.gear[s])) h.gear[s] = g;
+  }
+  h.hp = stats(h).hp; h.ko = false;
+}
+const trinketVal = g => Math.round((3 + g.l * 0.15) * (1 + 0.5 * g.r));
+function topAttr(h) { const b = def(h.id).build, o = [0, 1, 2, 3, 4, 5].sort((x, y) => b[y] - b[x]); return o[rnd(3)]; }
+function unlockCount(b) { return Math.min(100, b < 3 ? 0 : b < 6 ? 1 : b < 10 ? 2 : b < 15 ? 3 : b < 20 ? 4 : 5 + Math.floor((b - 20) / 4)); }
+const nextUnlockAt = () => { const n = G.got; return n >= 100 ? null : [3, 6, 10, 15, 20][n] || 20 + (n - 4) * 4; };
+const slotsFor = b => SLOT_AT.filter(s => b + 1 >= s).length;
+
+function newGame(o) {
+  const order = HERO.map(h => h.id);
+  for (let i = order.length - 1; i > 0; i--) { const j = rnd(i + 1); [order[i], order[j]] = [order[j], order[i]]; }
+  G = { v: 1, story: o.story, me: { id: 100, name: o.name || "You", cls: o.cls, build: o.build.slice(), lost: THINGS[o.story.t].it, skin: "#e8b88a", hair: "#5a3a1e" }, heroes: {}, party: [100, null, null, null, null, null], slots: 1, order, got: 0, stage: 1, best: 0, hold: 0, killed: 0, foes: [], wait: 0, buffs: {}, log: [], at: Date.now(), born: Date.now(), n: { kills: 0, wipes: 0, finds: 0, secs: 0 } };
+  G.heroes[100] = newHero(100, 1);
+  G.heroes[100].pts = BUILD - o.build.reduce((a, b) => a + b, 0);
+  issue(G.heroes[100]);
+  say(tell("{v} " + VILLAINS[o.story.v].how + " and took {it2}. You are going to get it back."), "story");
+  nextWave();
+}
+
+// ================= The endless run =================
+function foe(s, boss) {
+  const z = zoneOf(s), g = Math.pow(GE, s - 1), c = boss ? ["", z % 2 ? "D" : "G"] : EC[(z * 3 + rnd(5)) % EC.length];
+  const e = { n: boss ? tell("{v}'s ") + RANKS[z % RANKS.length] : pick(EA) + " " + c[0], sh: c[1], boss: !!boss, max: 16 * g * (1 + s * 0.03) * (boss ? 7 : 1), atk: 2.6 * g * (boss ? 1.7 : 1), iv: boss ? 1.5 : 1.9, t: 0.6 + Math.random(), stun: 0, dot: 0, dotT: 0, hue: (z * 47) % 360, uid: G.uid = (G.uid || 0) + 1 };
+  e.hp = e.max;
+  return e;
+}
+const stageNeed = s => isBoss(s) ? 1 : 6;
+function nextWave() {
+  const s = G.stage, n = party().length;
+  if (isBoss(s)) G.foes = [foe(s, true)];
+  else { const left = stageNeed(s) - G.killed, k = Math.min(left, 1 + rnd(Math.min(3, n + 1))); G.foes = []; for (let i = 0; i < k; i++) G.foes.push(foe(s)); }
+  G.wait = 0.5;
+}
+function gainXp(h, x) {
+  h.xp += x;
+  let up = 0;
+  while (h.xp >= xpNeed(h.lvl) && up < 50) { h.xp -= xpNeed(h.lvl); h.lvl++; h.pts += PER_LVL; up++; }
+  if (up) {
+    if (h.auto) autoSpend(h);
+    if (!h.ko) h.hp = stats(h).hp;
+    fx({ k: "up", id: h.id });
+    for (let i = 0; i < 3; i++) if (SKILL_AT[i] > h.lvl - up && SKILL_AT[i] <= h.lvl && i > 0) say(def(h.id).name + " learned " + CLS[def(h.id).cls].sk[i][0] + ".", "good");
+  }
+}
+function drop(e) {
+  const ps = party(), luckBuff = G.buffs.luck ? 2 : 1;
+  if (Math.random() > (e.boss ? 1 : 0.1 * luckBuff)) return;
+  const h = pick(ps), s = pick(GSLOT)[0], lf = 1 + stats(h).luck * 0.03, r = Math.random();
+  const g = { s, l: G.stage, n: rnd(GEAR[s].length), r: r < 0.008 * lf ? 4 : r < 0.035 * lf ? 3 : r < 0.11 * lf ? 2 : r < 0.33 * lf ? 1 : 0 };
+  if (e.boss && g.r < 1) g.r = 1;
+  if (s === "t") { g.a = topAttr(h); g.v = trinketVal(g); }
+  G.n.finds++;
+  if (gearPow(g) > gearPow(h.gear[s]) * 1.001) {
+    const full = !h.ko && h.hp >= stats(h).hp * 0.999;
+    h.gear[s] = g;
+    if (full) h.hp = stats(h).hp;
+    fx({ k: "loot", id: h.id, r: g.r });
+    if (g.r >= 3) say(def(h.id).name + " found a " + gearName(g) + ".", "good");
+  }
+}
+function unlocks() {
+  // New heroes and party slots arrive as the best stage climbs.
+  while (G.got < unlockCount(G.best)) {
+    const id = G.order[G.got++], h = newHero(id, Math.max(1, Math.floor(avgLvl() * 0.9)));
+    G.heroes[id] = h;
+    const d = def(id);
+    say(d.name + " the " + CLS[d.cls].n + " joins you. " + tell("{v}") + " took " + d.lost + ".", "join");
+    fx({ k: "join", id });
+  }
+  const sl = slotsFor(G.best);
+  if (sl > G.slots) { G.slots = sl; say("Your party can now hold " + sl + " heroes.", "good"); }
+  for (let i = 0; i < G.slots; i++) if (G.party[i] == null) {
+    const bench = Object.values(G.heroes).filter(h => !G.party.includes(h.id)).sort((a, b) => b.lvl - a.lvl)[0];
+    if (!bench) break;
+    place(i, bench.id);
+  }
+}
+function place(slot, id) {
+  const was = G.party.indexOf(id);
+  if (was >= 0) G.party[was] = G.party[slot];
+  G.party[slot] = id;
+  const h = G.heroes[id], want = Math.floor(avgLvl() * 0.8);
+  if (h.lvl < want) { h.pts += (want - h.lvl) * PER_LVL; h.lvl = want; h.xp = 0; if (h.auto) autoSpend(h); }
+  issue(h);
+}
+function bench(slot) { if (party().length > 1) G.party[slot] = null; }
+function stageClear() {
+  const s = G.stage, first = s > G.best;
+  if (first) {
+    G.best = s; G.fails = 0;
+    if (isBoss(s)) { say(tell(ESCAPES[(zoneOf(s) + G.story.t) % ESCAPES.length], RANKS[zoneOf(s) % RANKS.length]), "story"); say("Next: " + zoneName(zoneOf(s + 1)) + ".", ""); }
+    else if (s % 10 === 5 && s > 5) say(tell(POSTCARDS[(zoneOf(s) + G.story.v) % POSTCARDS.length]), "story");
+    unlocks();
+  }
+  for (const h of party()) { h.ko = false; h.hp = stats(h).hp; }
+  if (G.hold > 0) G.hold--; else G.stage++;
+  G.killed = 0; G.clock = 0;
+  nextWave();
+}
+function wipe() {
+  G.n.wipes++;
+  const s = G.stage;
+  G.fails = (G.fails || 0) + 1;
+  G.stage = Math.max(1, s - 2); G.hold = Math.min(20, 2 + G.fails * 2); G.killed = 0; G.buffs = {}; G.clock = 0;
+  for (const h of party()) { h.ko = false; h.hp = stats(h).hp; h.t = 1; }
+  const last = G.log[G.log.length - 1], text = "The party is flattened at stage " + s + " and falls back to train.";
+  if (last && last.k === "bad") { last.t = text; last.s = G.stage; } else say(text, "bad");
+  fx({ k: "wipe" });
+  nextWave();
+}
+function hitFoe(e, dmg, h, crit) {
+  if (e.hp <= 0) return;
+  e.hp -= dmg;
+  fx({ k: "num", e: e.uid, t: fmt(dmg), crit });
+  if (e.hp <= 0) {
+    G.n.kills++; G.killed++;
+    const x = 5 * Math.pow(GX, G.stage - 1) * (e.boss ? 8 : 1);
+    for (const p of party()) gainXp(p, x);
+    drop(e);
+  }
+}
+function cast(h, st, i) {
+  const sk = CLS[def(h.id).cls].sk[i], [name, cd, type, o] = sk, live = G.foes.filter(e => e.hp > 0), ps = party().filter(p => !p.ko);
+  const might = G.buffs.might ? 1 + G.buffs.might.v : 1;
+  if (type === "heal" || type === "healall") {
+    const hurt = ps.map(p => ({ p, f: p.hp / stats(p).hp })).sort((a, b) => a.f - b.f);
+    if (o.self) { if (h.hp / st.hp > 0.6) return false; }
+    else if (!hurt.length || hurt[0].f > (type === "heal" ? 0.7 : 0.8)) return false;
+    const amt = p => stats(p).hp * o.f * Math.sqrt(st.sp);
+    for (const p of o.self ? [h] : type === "heal" ? [hurt[0].p] : ps) { p.hp = Math.min(stats(p).hp, p.hp + amt(p)); fx({ k: "heal", id: p.id }); }
+  } else if (!live.length) return false;
+  else if (type === "strike") { const e = live[0], crit = o.crit || Math.random() < st.crit; hitFoe(e, st.atk * o.m * st.sp * might * (crit ? 2 : 1), h, crit); if (o.stun) e.stun = Math.max(e.stun, o.stun * (e.boss ? 0.5 : 1)); if (o.heal) h.hp = Math.min(st.hp, h.hp + st.hp * o.heal); }
+  else if (type === "cleave") for (const e of live) hitFoe(e, st.atk * o.m * st.sp * might, h, false);
+  else if (type === "dot") for (const e of o.all ? live : [live[0]]) { e.dot = Math.max(e.dot, st.atk * o.m * st.sp * might / 6); e.dotT = 6; }
+  else if (type === "stunall") for (const e of live) e.stun = Math.max(e.stun, o.d * (e.boss ? 0.5 : 1));
+  else if (type === "buff") G.buffs[o.k] = { v: o.v, t: o.d };
+  h.cd[i] = cd * st.cd;
+  fx({ k: "skill", id: h.id, t: name });
+  return true;
+}
+function tick() {
+  G.n.secs += DT;
+  if (G.wait > 0) { G.wait -= DT; return; }
+  G.clock = (G.clock || 0) + DT;
+  const rage = G.clock > RAGE ? Math.pow(1.12, G.clock - RAGE) : 1;
+  const ps = party();
+  for (const k in G.buffs) { G.buffs[k].t -= DT; if (G.buffs[k].t <= 0) delete G.buffs[k]; }
+  const haste = G.buffs.haste ? 1 + G.buffs.haste.v : 1, might = G.buffs.might ? 1 + G.buffs.might.v : 1, guard = G.buffs.guard ? 1 - G.buffs.guard.v : 1;
+  for (const h of ps) {
+    if (h.ko) continue;
+    const st = stats(h);
+    h.hp = Math.min(st.hp, h.hp + st.hp * 0.004 * DT);
+    for (let i = 0; i < 3; i++) { if (h.lvl < SKILL_AT[i]) continue; h.cd[i] -= DT; if (h.cd[i] <= 0 && !cast(h, st, i)) h.cd[i] = 0.5; }
+    h.t -= DT * haste;
+    if (h.t <= 0) {
+      h.t += st.iv;
+      const e = G.foes.find(e => e.hp > 0);
+      if (e) { const crit = Math.random() < st.crit; fx({ k: "hit", id: h.id }); hitFoe(e, st.atk * might * (crit ? 2 : 1), h, crit); }
+    }
+  }
+  for (const e of G.foes) {
+    if (e.hp <= 0) continue;
+    if (e.dotT > 0) { e.dotT -= DT; hitFoe(e, e.dot * DT, null, false); if (e.hp <= 0) continue; }
+    if (e.stun > 0) { e.stun -= DT; continue; }
+    e.t -= DT;
+    if (e.t > 0) continue;
+    e.t += e.iv;
+    const live = ps.filter(h => !h.ko);
+    if (!live.length) break;
+    let tot = 0; const ws = live.map(h => { const w = CLS[def(h.id).cls].tank; tot += w; return w; });
+    let x = Math.random() * tot, k = 0; while (k < live.length - 1 && (x -= ws[k]) > 0) k++;
+    const h = live[k], st = stats(h), dmg = e.atk * rage * (1 - st.dr) * guard * (0.85 + Math.random() * 0.3);
+    h.hp -= dmg;
+    fx({ k: "ouch", id: h.id, e: e.uid, t: fmt(dmg) });
+    if (h.hp <= 0) { h.hp = 0; h.ko = true; }
+  }
+  if (ps.every(h => h.ko)) { wipe(); return; }
+  if (G.foes.every(e => e.hp <= 0)) { if (G.killed >= stageNeed(G.stage)) stageClear(); else nextWave(); }
+}
+// Run the game forward by a number of seconds without drawing anything.
+function fastForward(secs) {
+  const before = { stage: G.best, lv: party().reduce((s, h) => s + h.lvl, 0), finds: G.n.finds, got: G.got };
+  QUIET = true;
+  for (let n = Math.floor(Math.min(secs, OFFLINE_CAP) / DT); n > 0; n--) tick();
+  QUIET = false;
+  return { secs: Math.min(secs, OFFLINE_CAP), stages: G.best - before.stage, levels: party().reduce((s, h) => s + h.lvl, 0) - before.lv, finds: G.n.finds - before.finds, joined: G.got - before.got };
+}
+const SPR = {"P":["...kkkkkk...","..khhhhhhk..","..khsssshk..","..kskssksk..","..kssssssk..","...kkaakk...","..kaaaaaak..",".ksaaaaaask.",".kskabbaksk.","...kaaaak...","...kbk.kbk..","...kkk.kkk.."],"h":["...kkkkkk...","..kaaaaaak..","..kaaaaaak..","..kawaawak..","..kaaaaaak..","...kkbbkk...","..kbbbbbbk..",".kabbbbbbak.",".kakbbbbkak.","...kbbbbk...","...kak.kak..","...kkk.kkk.."],"G":["...kkkkkk...","..kaaaaaak..","..kawaawak..","..kaaaaaak..",".kkkabbakkk.","kaaaaaaaaaak","kaakaaaakaak","kaakaaaakaak","kcckabbakcck",".kk.kaak.kk.","..kaakkaak..","..kkkkkkkk.."],"r":["............","............","............","............","..kk........",".kaak..kkk..",".kaaakkaaak.","kawaaaaaaak.","kaaaaaaaaakk",".kkaaaaaak.k","...kk..kk..k","..........k."],"b":["............","k..........k","kk..k..k..kk","kak.kkkk.kak","kaakaaaakaak","kaaawaawaaak",".kaaaaaaaak.",".ka.kaak.ak.",".k...kk...k.","............","............","............"],"s":["............","............","............","....kkkk....","...kaccak...","..kaacaaak..",".kaawaawaak.",".kaaaaaaaak.","kaaaaaaaaaak","kabaaaaaabak",".kkkkkkkkkk.","............"],"i":["............","............","k..k....k..k",".k.k.kk.k.k.","..kkkaakkk..","kkkaaaaaakkk","..kawaawak..","kkkaaaaaakkk","..kkaaaakk..",".k.k.kk.k.k.","k..k....k..k","............"],"g":["....kkkk....","..kkcccckk..",".kcccccccck.",".kcckcckccck",".kcckcckccck",".kcccccccck.",".kcccccccck.",".kaaaaaaaak.",".kaaaaaaaak.",".kakaakaakak",".kk.kk.kk.k.","............"],"k":["....kkkk....","...kwwwwk...","...kkwwkk...","...kwwwwk...","....kwwk....","..kkkaakkk..",".kwkawwakwk.",".kw.kaak.wk.",".k..kwwk..k.","....kwwk....","...kwk.kwk..","...kk..kk..."],"d":["............","............",".kk.........","kaak......k.","kawakkkkkkak","kaaaaaaaaaak",".kkaaaaaaaak","..kaaaaaaak.","..kakkkkkak.","..kak...kak.","..kk....kk..","............"],"l":["............",".....kkkk...","....kaaaak..","....kawaak..",".....kkaak..","..kkkkaak...",".kaaaaak....","kaakkkk.....","kaak..kkkk..",".kaakkaaaak.","..kaaaakkk..","...kkkk....."],"D":["..k......kk.",".kak....kaak",".kaak..kawak","kaaak.kaaakk","kaaaakaaak..","kaaaaaaaak..",".kaaaaaaak..","..kaaaaaaak.","..kaakkaaak.","..kak..kaakk","..kk...kkaak",".........kk."],"m":[".....kk.....","....kyyk....","..kkkkkkkk..","..kaaaaaak..","..karaarak..","..kaaaaaak..",".kkkkkkkkkk.","kakabbbbakak","kakabbbbakak",".k.kaaaak.k.","...kak.kak..","..kkkk.kkkk."],"e":["............","...kkkkkk...","..kaaaaaak..",".kaawwwwaak.",".kawwkkwwak.",".kawwkkwwak.",".kaawwwwaak.","..kaaaaaak..",".k.kkkkkk.k.",".k.k.kk.k.k.","k..k.k..k..k","............"]};
+// ================= Interface =================
+if (typeof document !== "undefined") {
+  const $ = id => document.getElementById(id);
+  const esc = s => String(s).replace(/[&<>"']/g, ch => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[ch]));
+  const SAVE_KEY = "give-it-back-save-v1";
+  const still = window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+  const darkQ = window.matchMedia ? window.matchMedia("(prefers-color-scheme: dark)") : { matches: false };
+  const isDark = () => { const t = document.documentElement.dataset.theme; return t ? t === "dark" : darkQ.matches; };
+  const canvas = $("scene"), ctx = canvas.getContext("2d");
+  let modal = null, setup = null, acc = 0, hudAt = 0, saveAt = 0, partySig = "", logSig = "", walk = 0, sheetSig = "", toolSig = "", confirmReset = false;
+  let cloud = null, cloudBusy = false, cloudAt = 0, freshStart = false, loadedAt = 0;
+
+  // ---------- Saving: this browser first, and the viewer's own cloud slot when the page has one ----------
+  const freeze = () => JSON.stringify(G);
+  function thaw(json) { try { const d = JSON.parse(json); return d && d.v === 1 && d.heroes && d.party && d.story ? d : null; } catch (e) { return null; } }
+  function saveLocal() { if (!G) return; try { localStorage.setItem(SAVE_KEY, freeze()); } catch (e) {} }
+  function loadLocal() { try { return thaw(localStorage.getItem(SAVE_KEY) || "null"); } catch (e) { return null; } }
+  function pushCloud() {
+    if (!cloud || cloudBusy || !G) return;
+    cloudBusy = true; cloudAt = Date.now();
+    Promise.resolve().then(() => cloud.set({ json: freeze(), at: G.at, best: G.best })).catch(() => {}).then(() => { cloudBusy = false; });
+  }
+  async function initCloud() {
+    try {
+      if (!window.claude || !window.claude.use) return;
+      const [db, user] = await Promise.all([window.claude.use("db"), window.claude.use("user")]);
+      if (!db || !user) return;
+      const id = await user.id();
+      if (!id) return;
+      const ref = db.collection("data/users/" + id).doc("save"), snap = await ref.get();
+      cloud = ref;
+      const d = snap && snap.exists && snap.data && typeof snap.data.json === "string" ? thaw(snap.data.json) : null;
+      // Take the cloud copy when there is no game here yet, or it was played more recently somewhere else.
+      if (d && (!G || (freshStart && d.best >= G.best) || (!freshStart && d.at > loadedAt + 60000))) { begin(d); }
+    } catch (e) {}
+  }
+  function begin(d) { G = d; loadedAt = d.at; freshStart = false; modal = null; setup = null; partySig = logSig = toolSig = ""; FX.length = 0; FL.length = 0; render(); }
+
+  // ---------- Pixel sprites ----------
+  const cache = new Map();
+  function shade(hex, f) {
+    const n = parseInt(hex.slice(1), 16), t = f < 0 ? 0 : 255, a = Math.abs(f), ch = v => Math.round(v + (t - v) * a);
+    return "rgb(" + ch(n >> 16) + "," + ch(n >> 8 & 255) + "," + ch(n & 255) + ")";
+  }
+  function hsl(h, s, l) {
+    s /= 100; l /= 100;
+    const k = n => (n + h / 30) % 12, a = s * Math.min(l, 1 - l), f = n => Math.round(255 * (l - a * Math.max(-1, Math.min(k(n) - 3, Math.min(9 - k(n), 1)))));
+    return "#" + [f(0), f(8), f(4)].map(v => v.toString(16).padStart(2, "0")).join("");
+  }
+  function sprite(key, base, S, skin, hair) {
+    const id = key + "|" + base + "|" + S + "|" + (skin || "") + (hair || "");
+    let c = cache.get(id);
+    if (c) return c;
+    c = document.createElement("canvas"); c.width = c.height = S;
+    const g = c.getContext("2d"), col = { k: "#15131a", w: "#f4f1ea", r: "#e0483c", y: "#e9c046", a: base, b: shade(base, -0.35), c: shade(base, 0.4), s: skin || "#e8b88a", h: hair || "#5a3a1e" };
+    SPR[key].forEach((row, y) => { for (let x = 0; x < 12; x++) { const ch = row[x]; if (ch === ".") continue; const x0 = Math.round(x * S / 12), y0 = Math.round(y * S / 12); g.fillStyle = col[ch]; g.fillRect(x0, y0, Math.round((x + 1) * S / 12) - x0, Math.round((y + 1) * S / 12) - y0); } });
+    if (cache.size > 400) cache.clear();
+    cache.set(id, c);
+    return c;
+  }
+  const heroSprite = (id, S) => { const d = def(id); return sprite("P", CLS[d.cls].col, S, d.skin, d.hair); };
+  function paintSprites(root) { root.querySelectorAll("canvas[data-hero]").forEach(c => { const S = 48; c.width = c.height = S; c.getContext("2d").drawImage(heroSprite(+c.dataset.hero, S), 0, 0); }); }
+
+  // ---------- The battle scene ----------
+  const FL = [], AN = {}, PLACE = {};
+  let banner = null;
+  const RCOL = ["#ffffff", "#7ddc8a", "#6fb7ff", "#c58cff", "#ffcc33"];
+  function drawScene(now, dt) {
+    const dpr = window.devicePixelRatio || 1, w = canvas.clientWidth, h = canvas.clientHeight;
+    if (!w) return;
+    const cw = Math.round(w * dpr), ch = Math.round(h * dpr);
+    if (canvas.width !== cw || canvas.height !== ch) { canvas.width = cw; canvas.height = ch; }
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0); ctx.imageSmoothingEnabled = false;
+    const S = w < 520 ? 36 : 48, gy = Math.round(h * 0.8), dark = isDark(), hue = (zoneOf(G.stage) * 47 + 200) % 360;
+    if (G.wait > 0 && !still) walk += dt * 70;
+    ctx.fillStyle = hsl(hue, dark ? 35 : 60, dark ? 20 : 80); ctx.fillRect(0, 0, w, h);
+    for (let L = 0; L < 2; L++) {
+      ctx.fillStyle = hsl((hue + 30 + L * 25) % 360, dark ? 25 : 35, dark ? 26 + L * 5 : 68 - L * 9);
+      ctx.beginPath(); ctx.moveTo(0, gy);
+      for (let x = 0; x <= w; x += 8) { const u = (x + walk * (0.15 + L * 0.2)) / (90 - L * 30); ctx.lineTo(x, gy - 26 - L * -8 - (Math.sin(u) + Math.sin(u * 2.3 + L)) * (16 - L * 6) - (L ? 0 : 22)); }
+      ctx.lineTo(w, gy); ctx.fill();
+    }
+    const gh = 30 + (zoneOf(G.stage) * 47) % 110;
+    ctx.fillStyle = hsl(gh, dark ? 28 : 42, dark ? 24 : 50); ctx.fillRect(0, gy - 6, w, h - gy + 6);
+    ctx.fillStyle = hsl(gh, dark ? 28 : 42, dark ? 17 : 38);
+    ctx.fillRect(0, gy - 6, w, 3);
+    for (let i = 0; i < 12; i++) { const x = ((i * 97 - walk) % (w + 40) + w + 40) % (w + 40) - 20; ctx.fillRect(x, gy + 6 + (i * 37) % (h - gy - 10), 10, 3); }
+
+    // Soak up what happened since the last frame.
+    while (FX.length) {
+      const e = FX.shift();
+      if (e.k === "hit") (AN[e.id] = AN[e.id] || {}).lunge = now;
+      else if (e.k === "num") { const p = PLACE["e" + e.e]; if (p) { (AN["e" + e.e] = AN["e" + e.e] || {}).flash = now; FL.push({ x: p.x + (Math.random() - 0.5) * S * 0.5, y: p.y - p.s, t: e.t, c: e.crit ? "#ffcc33" : "#ffffff", big: e.crit, t0: now }); } }
+      else if (e.k === "ouch") { (AN["e" + e.e] = AN["e" + e.e] || {}).lunge = now; (AN[e.id] = AN[e.id] || {}).flash = now; const p = PLACE[e.id]; if (p) FL.push({ x: p.x, y: p.y - p.s, t: e.t, c: "#ff6b5e", t0: now }); }
+      else if (e.k === "skill") { const p = PLACE[e.id]; if (p) FL.push({ x: clamp(p.x, 70, w - 70), y: p.y - p.s - 14, t: e.t, c: "#ffffff", tag: 1, t0: now }); }
+      else if (e.k === "heal") { const p = PLACE[e.id]; if (p) FL.push({ x: p.x, y: p.y - p.s, t: "+", c: "#7ddc8a", big: 1, t0: now }); }
+      else if (e.k === "up") { const p = PLACE[e.id]; if (p) FL.push({ x: clamp(p.x, 50, w - 50), y: p.y - p.s - 4, t: "Level up", c: "#ffcc33", tag: 1, t0: now }); }
+      else if (e.k === "loot") { const p = PLACE[e.id]; if (p) FL.push({ x: p.x, y: p.y - p.s - 8, t: "★", c: RCOL[e.r], big: 1, t0: now }); }
+      else if (e.k === "wipe") banner = { t: "Flattened. Falling back to train.", t0: now };
+      else if (e.k === "join") banner = { t: def(e.id).name + " joins you", t0: now };
+      if (FL.length > 40) FL.shift();
+    }
+    const bob = i => still || G.wait <= 0 ? 0 : Math.round(Math.sin(now / 90 + i * 1.7) * 2);
+    const bar = (x, y, bw, f, col) => { ctx.fillStyle = "#15131a"; ctx.fillRect(x - 1, y - 1, bw + 2, 6); ctx.fillStyle = "#3a3f55"; ctx.fillRect(x, y, bw, 4); ctx.fillStyle = col; ctx.fillRect(x, y, Math.max(0, bw * f), 4); };
+    const ps = party();
+    for (let j = ps.length - 1; j >= 0; j--) {
+      const hh = ps[j], back = j >= 3, a = AN[hh.id] || {}, st = stats(hh);
+      const lunge = a.lunge && now - a.lunge < 140 ? Math.sin((now - a.lunge) / 140 * Math.PI) * S * 0.3 : 0;
+      const x = w * 0.4 - (back ? j - 3 : j) * S * 0.92 - (back ? S * 0.46 : 0) - S / 2 + lunge, y = gy - (back ? S * 0.5 : 0) + bob(j);
+      PLACE[hh.id] = { x: x + S / 2, y, s: S };
+      ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse(x + S / 2, gy - (back ? S * 0.5 : 0) + 2, S * 0.34, S * 0.09, 0, 0, 6.3); ctx.fill();
+      if (hh.ko) { ctx.save(); ctx.globalAlpha = 0.45; ctx.translate(x + S / 2, y - S * 0.2); ctx.rotate(-Math.PI / 2); ctx.drawImage(heroSprite(hh.id, S * 2), -S / 2, -S / 2, S, S); ctx.restore(); continue; }
+      ctx.drawImage(heroSprite(hh.id, S * 2), Math.round(x), Math.round(y - S), S, S);
+      if (a.flash && now - a.flash < 90) { ctx.fillStyle = "rgba(255,90,80,.45)"; ctx.fillRect(Math.round(x + S * 0.2), Math.round(y - S), S * 0.6, S); }
+      bar(Math.round(x + S * 0.15), Math.round(y + 5), S * 0.7, hh.hp / st.hp, hh.hp / st.hp < 0.35 ? "#ff6b5e" : "#58c97c");
+    }
+    const foes = G.foes, live = foes.filter(e => e.hp > 0);
+    foes.forEach((e, k) => {
+      if (e.hp <= 0 || G.wait > 0.25) { delete PLACE["e" + e.uid]; return; }
+      const sc = e.boss ? 2 : 1, es = S * sc, a = AN["e" + e.uid] || {};
+      const lunge = a.lunge && now - a.lunge < 160 ? Math.sin((now - a.lunge) / 160 * Math.PI) * S * 0.3 : 0;
+      const x = (e.boss ? w * 0.7 - es / 2 : w * 0.6 + k * S * 1.05) - lunge, y = gy + (k % 2 ? 4 : 0);
+      PLACE["e" + e.uid] = { x: x + es / 2, y, s: es };
+      ctx.fillStyle = "rgba(0,0,0,.25)"; ctx.beginPath(); ctx.ellipse(x + es / 2, y + 2, es * 0.36, es * 0.09, 0, 0, 6.3); ctx.fill();
+      const col = hsl((e.hue + hashStr(e.n) % 6 * 40) % 360, e.boss ? 65 : 50, 52);
+      ctx.drawImage(sprite(e.sh, col, es * 2), Math.round(x), Math.round(y - es), es, es);
+      if (a.flash && now - a.flash < 80) { ctx.globalAlpha = 0.5; ctx.fillStyle = "#fff"; ctx.fillRect(Math.round(x + es * 0.15), Math.round(y - es * 0.9), es * 0.7, es * 0.85); ctx.globalAlpha = 1; }
+      if (e.stun > 0) { ctx.font = "800 " + Math.round(S * 0.4) + "px system-ui"; ctx.textAlign = "center"; ctx.fillStyle = "#ffcc33"; ctx.fillText("✱", x + es / 2, y - es - 2); }
+      bar(Math.round(x + es * 0.1), Math.round(y + 5), es * 0.8, e.hp / e.max, e.dotT > 0 ? "#a6d94a" : "#ff6b5e");
+    });
+    if (live.length && G.wait <= 0.25) {
+      const e = live[0];
+      ctx.font = "700 13px system-ui,sans-serif"; ctx.textAlign = "right"; ctx.lineWidth = 3; ctx.strokeStyle = "rgba(10,14,34,.8)"; ctx.fillStyle = "#fff";
+      const label = e.n + "  " + fmt(Math.max(0, e.hp)) + " / " + fmt(e.max);
+      ctx.strokeText(label, w - 10, 18); ctx.fillText(label, w - 10, 18);
+    }
+    for (let i = FL.length - 1; i >= 0; i--) {
+      const f = FL[i], life = f.tag ? 1100 : 700, u = (now - f.t0) / life;
+      if (u >= 1) { FL.splice(i, 1); continue; }
+      ctx.globalAlpha = u < 0.7 ? 1 : 1 - (u - 0.7) / 0.3;
+      ctx.font = (f.tag ? "700 13px " : "800 " + (f.big ? 20 : 15) + "px ") + "system-ui,sans-serif"; ctx.textAlign = "center";
+      ctx.lineWidth = 3; ctx.strokeStyle = "rgba(10,14,34,.85)";
+      const y = f.y - (still ? 8 : u * 26);
+      ctx.strokeText(f.t, f.x, y); ctx.fillStyle = f.c; ctx.fillText(f.t, f.x, y);
+      ctx.globalAlpha = 1;
+    }
+    if (banner) {
+      const u = (now - banner.t0) / 2200;
+      if (u >= 1) banner = null;
+      else { ctx.globalAlpha = u < 0.8 ? 1 : 1 - (u - 0.8) / 0.2; ctx.fillStyle = "rgba(10,14,34,.8)"; ctx.fillRect(0, h * 0.3, w, 34); ctx.font = "800 16px system-ui,sans-serif"; ctx.textAlign = "center"; ctx.fillStyle = "#ffcc33"; ctx.fillText(banner.t, w / 2, h * 0.3 + 22); ctx.globalAlpha = 1; }
+    }
+  }
+
+  // ---------- Status ----------
+  const shortName = n => n.length > 18 ? n.split(" ")[0] + (n.split(" ")[1] ? " " + n.split(" ")[1] : "") : n;
+  function drawHud() {
+    const s = G.stage, need = stageNeed(s);
+    let pips = "";
+    for (let i = 0; i < need; i++) pips += '<i class="' + (i < G.killed ? "on" : "") + '"></i>';
+    $("stage").innerHTML = "<b>Stage " + s + (isBoss(s) ? ", boss" : "") + '</b><span class="zone">' + esc(zoneName(zoneOf(s))) + (G.hold > 0 && s < G.best + 1 ? ", training before another try" : "") + '</span><span class="pips" aria-label="' + G.killed + " of " + need + ' foes beaten">' + pips + "</span><span>Best " + G.best + "</span>";
+    const sig = G.party.join(",") + "|" + G.slots + "|" + Object.keys(G.heroes).length;
+    if (sig !== partySig) {
+      partySig = sig;
+      const spare = Object.keys(G.heroes).length > party().length;
+      $("party").innerHTML = G.party.map((id, i) => {
+        if (i >= G.slots) return '<div class="card panel empty">Slot opens at stage ' + SLOT_AT[i] + "</div>";
+        if (id == null) return '<button type="button" class="card empty" data-act="roster" data-arg="' + i + '">' + (spare ? "Empty. Choose a hero" : "Empty. Nobody to put here yet") + "</button>";
+        const d = def(id);
+        return '<button type="button" class="card" data-act="hero" data-arg="' + id + '" id="c' + id + '"><canvas data-hero="' + id + '" aria-hidden="true"></canvas><span class="nm">' + esc(shortName(d.name)) + '</span><span class="sub"></span><span class="bars"><span class="bar"><i></i></span><span class="bar x"><i></i></span></span><span class="pts" hidden></span></button>';
+      }).join("");
+      paintSprites($("party"));
+    }
+    for (const h of party()) {
+      const c = $("c" + h.id); if (!c) continue;
+      const st = stats(h), f = h.hp / st.hp, k = c.children;
+      k[2].textContent = "Lv " + h.lvl + " " + CLS[def(h.id).cls].n;
+      c.classList.toggle("ko", h.ko);
+      k[3].children[0].className = "bar" + (f < 0.35 ? " low" : "");
+      k[3].children[0].firstChild.style.width = clamp(f * 100, 0, 100) + "%";
+      k[3].children[1].firstChild.style.width = clamp(h.xp / xpNeed(h.lvl) * 100, 0, 100) + "%";
+      k[4].hidden = h.pts <= 0; k[4].textContent = h.pts + (h.pts === 1 ? " point" : " points");
+    }
+    const total = Object.values(G.heroes).reduce((n, h) => n + h.pts, 0), ts = total + "|" + Object.keys(G.heroes).length;
+    if (ts !== toolSig) {
+      toolSig = ts;
+      $("tools").innerHTML = '<button type="button" data-act="roster">Heroes ' + Object.keys(G.heroes).length + " of 101</button>" +
+        (total ? '<button type="button" data-act="spendall">Spend all ' + total + " points for me</button>" : "") +
+        '<button type="button" data-act="tale">The story so far</button>';
+    }
+    const ls = G.log.length + "|" + (G.log.length ? G.log[G.log.length - 1].t : "");
+    if (ls !== logSig) { logSig = ls; $("log").innerHTML = G.log.slice().reverse().map(l => '<div class="' + l.k + '"><small>Stage ' + l.s + "</small>" + esc(l.t) + "</div>").join(""); }
+    if (modal && modal.hero != null) liveSheet();
+  }
+
+  // ---------- Windows ----------
+  function show(html) { $("modal").innerHTML = '<div class="sheet panel" role="dialog" aria-modal="true">' + html + "</div>"; $("modal").hidden = false; paintSprites($("modal")); }
+  function closeModal() { modal = null; $("modal").hidden = true; confirmReset = false; }
+  const head = (t, sub, id) => '<div class="head">' + (id != null ? '<canvas data-hero="' + id + '" aria-hidden="true"></canvas>' : "") + "<div><h2>" + t + "</h2>" + (sub ? '<p class="muted">' + sub + "</p>" : "") + '</div><button type="button" data-act="close">Close</button></div>';
+  function storyParts(S) {
+    const v = VILLAINS[S.v], th = THINGS[S.t], plan = PLANS[S.p].replace(/\{v\}/g, v.n).replace(/\{lair\}/g, v.lair).replace(/\{clue\}/g, v.clue);
+    return { v, th, plan, panels: '<div class="panels"><div><b>What it is</b>' + esc(th.what) + "</div><div><b>Why it matters</b>" + esc(th.why) + "</div><div><b>How to get it back</b>" + esc(plan) + "</div></div>" };
+  }
+  function introHtml() {
+    const p = storyParts(setup.story);
+    return "<h2>" + esc(p.v.n) + " has taken " + esc(p.th.it) + ".</h2><p>It was an ordinary morning. Then " + esc(p.v.n) + " " + esc(p.v.how) + ", and now it is gone.</p>" + p.panels +
+      '<button type="button" class="go" data-act="tobuild">Right. Who am I?</button>';
+  }
+  function buildHtml() {
+    const left = BUILD - setup.build.reduce((a, b) => a + b, 0);
+    const rows = ATTR.map(([n, d], k) => '<li><span class="nm"><b>' + n + "</b><small>" + d + '</small></span><button type="button" data-act="bminus" data-arg="' + k + '"' + (setup.build[k] <= 0 ? " disabled" : "") + ' aria-label="Less ' + n + '">−</button><span class="val">' + setup.build[k] + '</span><button type="button" data-act="bplus" data-arg="' + k + '"' + (left <= 0 ? " disabled" : "") + ' aria-label="More ' + n + '">+</button></li>').join("");
+    return "<h2>Who is going to get it back?</h2>" +
+      '<p><label>Your name <input type="text" id="nm" maxlength="18" placeholder="You" value="' + esc(setup.name) + '"></label></p>' +
+      '<div class="picks">' + CLS.map((c, i) => '<button type="button" data-act="bcls" data-arg="' + i + '" class="' + (i === setup.cls ? "on" : "") + '" aria-pressed="' + (i === setup.cls) + '"><b>' + c.n + "</b>" + c.d + "</button>").join("") + "</div>" +
+      '<h3>Build</h3><p>Every hero is built from ' + BUILD + ' points. <span class="budget">' + left + " left</span> " + '<button type="button" data-act="bsuggest">Suggest one</button></p>' +
+      '<ul class="rows">' + rows + "</ul>" +
+      '<p class="muted">You earn ' + PER_LVL + " more points every level. Levels, gear and skills arrive on their own as the party fights. Spending points is your job.</p>" +
+      '<button type="button" class="go" data-act="begin">Go and get it back</button>';
+  }
+  function sheetHtml(id) {
+    const h = G.heroes[id], d = def(id), c = CLS[d.cls], slot = G.party.indexOf(id);
+    const rows = ATTR.map(([n, ds], k) => '<li><span class="nm"><b>' + n + "</b><small>" + ds + '</small></span><span class="val" data-live="a' + k + '"></span><button type="button" data-act="sp" data-arg="' + k + ',1" data-pt>+1</button><button type="button" data-act="sp" data-arg="' + k + ',10" data-pt>+10</button></li>').join("");
+    return head(esc(d.name), '<span class="lvl">Level <span data-live="lvl"></span> ' + c.n + "</span>. " + esc(c.d) + (id === 100 ? "" : " " + esc(VILLAINS[G.story.v].n) + " took " + esc(d.lost) + "."), id) +
+      '<p><span class="budget"><span data-live="pts"></span> to spend</span> <button type="button" data-act="autoonce" data-pt>Spend them for me</button></p>' +
+      '<label class="chk"><input type="checkbox" data-act="auto"' + (h.auto ? " checked" : "") + "> Keep spending " + esc(shortName(d.name)) + "'s points for me</label>" +
+      '<ul class="rows">' + rows + "</ul>" +
+      '<h3>In a fight</h3><div class="grid2" data-live="stats"></div>' +
+      '<h3>Skills</h3><ul class="rows" data-live="skills"></ul><h3>Gear</h3><ul class="rows" data-live="gear"></ul>' +
+      '<p style="margin-top:14px">' + (slot >= 0 ? '<button type="button" data-act="roster" data-arg="' + slot + '">Swap for another hero</button> ' + (party().length > 1 ? '<button type="button" data-act="bench" data-arg="' + slot + '">Rest on the bench</button>' : "") : '<span class="muted">On the bench. Open an empty slot or swap someone out to bring them along.</span>') + "</p>";
+  }
+  function liveSheet() {
+    const id = modal.hero, h = G.heroes[id], root = $("modal"); if (!h || !root.querySelector('[data-live="stats"]')) return;
+    const st = stats(h), d = def(id), set = (k, v) => { const e = root.querySelector('[data-live="' + k + '"]'); if (e && e.textContent !== v) e.textContent = v; };
+    set("lvl", "" + h.lvl); set("pts", h.pts + (h.pts === 1 ? " point" : " points"));
+    for (let k = 0; k < 6; k++) set("a" + k, "" + st.a[k]);
+    root.querySelectorAll("[data-pt]").forEach(b => { b.disabled = h.pts <= 0; });
+    const sig = h.lvl + "|" + JSON.stringify(h.gear) + "|" + st.a.join(",");
+    if (sig === sheetSig) return;
+    sheetSig = sig;
+    root.querySelector('[data-live="stats"]').innerHTML = [["Attack", fmt(st.atk)], ["Health", fmt(st.hp)], ["Damage blocked", Math.round(st.dr * 100) + "%"], ["Attacks every", st.iv.toFixed(2) + "s"], ["Critical hits", Math.round(st.crit * 100) + "%"], ["Skill power", "×" + st.sp.toFixed(2)]].map(([a, b]) => "<div><span>" + a + "</span><b>" + b + "</b></div>").join("");
+    root.querySelector('[data-live="skills"]').innerHTML = CLS[d.cls].sk.map((s, i) => '<li class="' + (h.lvl < SKILL_AT[i] ? "locked" : "") + '"><span class="nm"><b>' + s[0] + "</b>" + (h.lvl < SKILL_AT[i] ? " (level " + SKILL_AT[i] + ")" : "") + "<small>" + s[4] + "</small></span></li>").join("");
+    root.querySelector('[data-live="gear"]').innerHTML = GSLOT.map(([s, n]) => { const g = h.gear[s]; return '<li><span class="nm"><b>' + n + ":</b> " + (g ? '<span style="color:' + (g.r ? RCOL[g.r] : "inherit") + ';-webkit-text-stroke:' + (g.r && !isDark() ? ".4px var(--ink)" : "0") + '">' + esc(gearName(g)) + "</span>" : "nothing") + "<small>" + (g ? (s === "w" ? "Attack ×" + (1 + 0.3 * gearPow(g)).toFixed(1) : s === "a" ? "Health ×" + (1 + 0.3 * gearPow(g)).toFixed(1) : "+" + g.v + " " + ATTR[g.a][0]) : "Something will turn up.") + "</small></span></li>"; }).join("");
+  }
+  function rosterHtml(slot) {
+    const hs = Object.values(G.heroes).sort((a, b) => (G.party.includes(b.id) - G.party.includes(a.id)) || b.lvl - a.lvl);
+    const rows = hs.map(h => {
+      const d = def(h.id), inP = G.party.includes(h.id);
+      return '<li><canvas data-hero="' + h.id + '" aria-hidden="true"></canvas><span class="nm"><b>' + esc(d.name) + "</b>" + (h.pts ? ' <span class="budget">' + h.pts + "</span>" : "") + "<small>Level " + h.lvl + " " + CLS[d.cls].n + (inP ? ", in the party" : ", on the bench") + "</small></span>" +
+        (slot != null && G.party[slot] !== h.id ? '<button type="button" data-act="place" data-arg="' + slot + "," + h.id + '">' + (inP ? "Move here" : "Pick") + "</button>" : "") + '<button type="button" data-act="hero" data-arg="' + h.id + '">Sheet</button></li>';
+    }).join("");
+    const nx = nextUnlockAt();
+    return head(slot != null ? "Who goes in slot " + (slot + 1) + "?" : "Your heroes", hs.length + " of 101, counting you. " + (nx ? "The next one joins when you first clear stage " + nx + "." : "Everybody is here.")) + '<ul class="rows">' + rows + "</ul>" +
+      '<p class="muted" style="margin-top:10px">Heroes on the bench do not gain experience, but anyone you bring in is trained up close to the party\'s level and handed basic gear.</p>';
+  }
+  function taleHtml() {
+    const p = storyParts(G.story), hrs = G.n.secs / 3600;
+    return head(esc(p.v.n) + " still has " + esc(p.th.it) + ".") + p.panels +
+      '<div class="grid2"><div><span>Time on the road</span><b>' + (hrs >= 1 ? hrs.toFixed(1) + " hours" : Math.round(G.n.secs / 60) + " minutes") + "</b></div><div><span>Furthest stage</span><b>" + G.best + "</b></div><div><span>Foes beaten</span><b>" + fmt(G.n.kills) + "</b></div><div><span>Times flattened</span><b>" + G.n.wipes + "</b></div><div><span>Things found</span><b>" + fmt(G.n.finds) + "</b></div><div><span>Times you got it back</span><b>0</b></div></div>" +
+      '<p style="margin-top:16px"><button type="button" data-act="reset">' + (confirmReset ? "Really start over? Everything is lost" : "Start over with a new theft") + "</button></p>";
+  }
+  function awayHtml(r) {
+    const m = Math.round(r.secs / 60);
+    return head("While you were away") + "<p>The party kept going for " + (m >= 120 ? (m / 60).toFixed(1) + " hours" : m + " minutes") + (r.secs >= OFFLINE_CAP ? ", which is as long as they will go without you" : "") + ".</p>" +
+      '<div class="grid2"><div><span>Stages gained</span><b>' + r.stages + "</b></div><div><span>Levels gained</span><b>" + r.levels + "</b></div><div><span>Things found</span><b>" + r.finds + "</b></div><div><span>Heroes joined</span><b>" + r.joined + "</b></div></div>" +
+      "<p style=\"margin-top:12px\">" + esc(VILLAINS[G.story.v].n) + " still has " + esc(THINGS[G.story.t].it) + '.</p><button type="button" class="go" data-act="close">Carry on</button>';
+  }
+  function render() {
+    if (!G) {
+      $("game").hidden = true;
+      if (!setup) setup = { story: { t: rnd(THINGS.length), v: rnd(VILLAINS.length), p: rnd(PLANS.length) }, name: "", cls: 0, build: suggest(0), step: "intro" };
+      $("theft").textContent = "An endless quest over something small.";
+      show(setup.step === "intro" ? introHtml() : buildHtml());
+      return;
+    }
+    $("game").hidden = false;
+    $("theft").innerHTML = "<b>" + esc(VILLAINS[G.story.v].n) + "</b> has " + esc(THINGS[G.story.t].it) + ". You are going to get it back.";
+    drawHud();
+    if (!modal) { $("modal").hidden = true; return; }
+    if (modal.hero != null) { sheetSig = ""; show(sheetHtml(modal.hero)); liveSheet(); }
+    else if (modal.roster) show(rosterHtml(modal.slot));
+    else if (modal.tale) show(taleHtml());
+    else if (modal.away) show(awayHtml(modal.away));
+  }
+  function suggest(cls) {
+    const w = CLS[cls].w, tot = w.reduce((a, b) => a + b, 0), b = w.map(v => Math.floor(v / tot * BUILD));
+    let left = BUILD - b.reduce((a, c) => a + c, 0);
+    const order = [0, 1, 2, 3, 4, 5].sort((x, y) => w[y] - w[x]);
+    for (let i = 0; left > 0; i++, left--) b[order[i % 6]]++;
+    return b;
+  }
+
+  function act(a, arg, el) {
+    if (!G) {
+      if ($("nm")) setup.name = $("nm").value;
+      if (a === "tobuild") setup.step = "build";
+      else if (a === "bcls") { setup.cls = +arg; setup.build = suggest(+arg); }
+      else if (a === "bplus") { if (setup.build.reduce((x, y) => x + y, 0) < BUILD) setup.build[+arg]++; }
+      else if (a === "bminus") { if (setup.build[+arg] > 0) setup.build[+arg]--; }
+      else if (a === "bsuggest") setup.build = suggest(setup.cls);
+      else if (a === "begin") { newGame({ name: setup.name.trim(), cls: setup.cls, build: setup.build, story: setup.story }); freshStart = true; loadedAt = G.at; modal = null; setup = null; partySig = logSig = ""; saveLocal(); }
+      const top = $("modal").scrollTop;
+      render();
+      $("modal").scrollTop = a === "tobuild" ? 0 : top;
+      return;
+    }
+    const keep = $("modal").scrollTop;
+    let redraw = true;
+    if (a === "close") closeModal();
+    else if (a === "hero") modal = { hero: +arg };
+    else if (a === "roster") modal = { roster: 1, slot: arg == null ? null : +arg };
+    else if (a === "tale") modal = { tale: 1 };
+    else if (a === "sp") { const [k, n] = arg.split(",").map(Number); spend(G.heroes[modal.hero], k, n); liveSheet(); redraw = false; }
+    else if (a === "autoonce") { autoSpend(G.heroes[modal.hero]); liveSheet(); redraw = false; }
+    else if (a === "auto") { const h = G.heroes[modal.hero]; h.auto = el.checked; if (h.auto) autoSpend(h); liveSheet(); redraw = false; }
+    else if (a === "spendall") { for (const h of Object.values(G.heroes)) autoSpend(h); }
+    else if (a === "place") { const [s, id] = arg.split(",").map(Number); place(s, id); modal = null; }
+    else if (a === "bench") { bench(+arg); modal = null; }
+    else if (a === "reset") {
+      if (!confirmReset) confirmReset = true;
+      else { try { localStorage.removeItem(SAVE_KEY); } catch (e) {} if (cloud) cloud.set({ json: "", at: Date.now(), best: 0 }).catch(() => {}); G = null; modal = null; setup = null; confirmReset = false; }
+    }
+    if (redraw) { render(); if (modal && (a === "reset")) $("modal").scrollTop = keep; }
+    else drawHud();
+    saveLocal();
+  }
+  document.addEventListener("click", e => {
+    const b = e.target.closest("[data-act]");
+    if (b && !b.disabled && b.type !== "checkbox") act(b.dataset.act, b.dataset.arg, b);
+  });
+  document.addEventListener("change", e => { if (e.target.dataset && e.target.dataset.act === "auto") act("auto", null, e.target); });
+  window.addEventListener("keydown", e => { if (e.key === "Escape" && G && modal) { closeModal(); render(); } });
+
+  // ---------- The clock ----------
+  let lastNow = 0;
+  function frame(now) {
+    requestAnimationFrame(frame);
+    const dtv = Math.min(0.1, (now - lastNow) / 1000); lastNow = now;
+    if (!G) return;
+    const real = Date.now(), gap = (real - G.at) / 1000;
+    if (gap > 5) {
+      // The tab was asleep or closed: run the missed time in one go.
+      const r = fastForward(gap);
+      G.at = real; acc = 0; partySig = ""; FX.length = 0;
+      if (gap > 90 && !(modal && modal.hero != null)) { modal = { away: r }; render(); }
+      saveLocal();
+    } else if (gap > 0) {
+      acc += gap; G.at = real;
+      while (acc >= DT) { tick(); acc -= DT; }
+    }
+    drawScene(now, dtv);
+    if (now - hudAt > 240) { hudAt = now; drawHud(); }
+    if (now - saveAt > 10000) { saveAt = now; saveLocal(); if (real - cloudAt > 30000) pushCloud(); }
+  }
+  window.addEventListener("pagehide", () => { saveLocal(); pushCloud(); });
+  document.addEventListener("visibilitychange", () => { if (document.hidden) { saveLocal(); pushCloud(); } });
+
+  const saved = loadLocal();
+  if (saved) begin(saved); else render();
+  initCloud();
+  requestAnimationFrame(frame);
+}
+</script>
+</body>
+</html>

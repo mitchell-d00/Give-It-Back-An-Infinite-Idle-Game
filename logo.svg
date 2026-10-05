@@ -1,0 +1,7 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" role="img" aria-label="Give It Back logo">
+  <rect width="128" height="128" rx="24" fill="#ffcc33"/>
+  <path d="M40 20 H74 V64 L100 76 A17 17 0 0 1 93 108 H58 A18 18 0 0 1 40 90 Z" fill="#c9ccd6" stroke="#1b2440" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M40 20 H74 V36 H40 Z" fill="#e5483c" stroke="#1b2440" stroke-width="7" stroke-linejoin="round"/>
+  <path d="M44 84 A16 16 0 0 0 60 100" fill="none" stroke="#1b2440" stroke-width="5" stroke-linecap="round"/>
+  <circle cx="92" cy="92" r="6" fill="#ffcc33" stroke="#1b2440" stroke-width="5"/>
+</svg>
